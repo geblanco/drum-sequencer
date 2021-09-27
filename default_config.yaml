@@ -1,0 +1,44 @@
+# modes
+note_mode: "toggle"
+track_mode: "select_tracks"
+clock_source: "internal"
+
+# I/O
+# ToDo := check channels indexed in 0, 1
+input_channel: 0
+led_channel: 0
+nof_tracks: 8
+output_channel: 0
+steps_per_track: 16
+led_config: 
+    led_mode: "handled"
+    led_map_out: null
+    led_channel: 0
+note_input_map:
+- 60
+- 61
+- 62
+- 63
+- 64
+- 65
+- 66
+- 67
+- 68
+- 69
+- 70
+- 71
+- 72
+- 73
+- 74
+- 75
+# auto generated following standard drum machine
+note_output_map: null
+track_select_map:
+- 40
+- 41
+- 42
+- 43
+- 44
+- 45
+- 46
+- 47

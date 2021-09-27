@@ -1,0 +1,3 @@
+launchpad_x:
+    start: "F0 00 20 29 02 0C 0E 01 F7"
+    finish: "F0 00 20 29 02 0C 0E 00 F7"
