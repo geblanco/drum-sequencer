@@ -34,6 +34,10 @@ class Clock(object):
             self._internal_clock.set_callback(self)
 
     def __call__(self, message, data=None):
+        if isinstance(message, (tuple, list)) and len(message) == 2:
+            # skip the timestamp
+            message, _ = message
+
         if message[0] == TIMING_CLOCK:
             now = time.time()
 
