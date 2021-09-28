@@ -5,10 +5,16 @@ from pathlib import Path
 from omegaconf import OmegaConf
 from rtmidi.midiutil import open_midiinput, open_midioutput
 
-from clock.clock import Clock
-from modes import TrackMode, NoteMode, LedMode, ClockSource
 from sequencer import Sequencer
+from clock.clock import Clock
 from midi_queue import InputQueue, OutputQueue
+from modes import (
+    TrackMode,
+    TrackSelectMode,
+    NoteMode,
+    LedMode,
+    ClockSource,
+)
 
 
 default_portname = "RtMidiIn Client:Midi Through"
@@ -37,7 +43,7 @@ def setup_clock(clock_source, controller_input, clock_port):
 
 
 def start_controller(controller_input, programmers, portname):
-    controller_name = portname.split(:)[0].lower().replace(" ", "_")
+    controller_name = portname.split(":")[0].lower().replace(" ", "_")
     controller = programmers.get(portname, None)
     if controller is not None:
         data = bytearray.fromhex(controller.start)
@@ -48,7 +54,7 @@ def start_controller(controller_input, programmers, portname):
 
 
 def finish_controller(controller_input, programmers, portname):
-    controller_name = portname.split(:)[0].lower().replace(" ", "_")
+    controller_name = portname.split(":")[0].lower().replace(" ", "_")
     controller = programmers.get(portname, None)
     if controller is not None:
         data = bytearray.fromhex(controller.finish)
@@ -128,7 +134,8 @@ def load_config(config):
     enums = [
         ("note_mode", NoteMode),
         ("track_mode", TrackMode),
-        ("clock_source", ClockSource)
+        ("track_select_mode", TrackSelectMode),
+        ("clock_source", ClockSource),
     ]
     for key, class_ in enums:
         conf[key] = class_(conf[key])
@@ -194,7 +201,7 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     except KeyboardInterrupt:
         pass
     finally:
-        print("Stopping threads...")        
+        print("Stopping threads...")
         input_queue.stop()
         output_queue.stop()
         clock.stop()

@@ -59,6 +59,19 @@ to handle how tracks will be selected.
 """
 
 
+def check_contraints(reply, type_, contraints):
+    ret = None
+    try:
+        ret = type_(reply)
+        if contraints is not None:
+            if ret < contraints[0] or ret > contraints[-1]:
+                ret = None
+    except Exception:
+        pass
+    finally:
+        return ret
+
+
 def query_yn(text):
     ans = False
     reply = input(f"{text} (Y/n): ")
@@ -92,7 +105,7 @@ def query_choices(text, choices):
     return ans
 
 
-def query_num(text, type_=None, sample=None):
+def query_num(text, type_=None, sample=None, contraints=None):
     ans = False
     if sample is not None:
         if not isinstance(sample, list):
@@ -114,8 +127,17 @@ def query_num(text, type_=None, sample=None):
         ans = query_num(text, type_, sample)
     elif reply == "":
         ans = query_num(text, type_, sample)
+    elif type_ is not None:
+        ans = check_contraints(reply, type_, contraints)
+        if ans is None:
+            text = "Invalid input, it must be a number! "
+            if contraints is not None:
+                text += f"And be between {contraints[0]} and {contraints[-1]}"
+
+            print(text)
+            ans = query_num(text, type_, sample, contraints)
     else:
-        ans = type_(reply) if type_ is not None else reply
+        ans = reply
 
     return ans
 
@@ -132,10 +154,10 @@ def confirm_pad(text, midiout, midomsg):
     return True
 
 
-__all__ = [
-    "_HELP_STR_",
-    "query_yn",
-    "query_choices",
-    "query_num",
-    "confirm_pad"
-]
+# __all__ = [
+#     "_HELP_STR_",
+#     "query_yn",
+#     "query_choices",
+#     "query_num",
+#     "confirm_pad"
+# ]

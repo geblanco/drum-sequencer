@@ -39,9 +39,10 @@ ToDo
   - output_queues do not need channels nor processing...
   The caveat could be speed, is it reasonable to use this mechanism for the sequencer?
   ~~
-
-- take back timestamp, is present in all callbacks
-- move modes to separate files (remove utils?)
+- ~~take back timestamp, is present in all callbacks~~
+  ToDo := Check working, Midi Queue and Clock should be enough
+- ~~move modes to separate files (remove utils?)~~
 - displayed tracks when TrackMode in select_tracks:
   A&H displays one track, launchpad can display more...
   check: \_select\_track and process in sequencer
+- main: load config from controller

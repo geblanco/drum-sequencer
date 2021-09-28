@@ -1,19 +1,26 @@
 # modes
 note_mode: "toggle"
 track_mode: "select_tracks"
+track_select_mode: "arrows"
 clock_source: "internal"
 
 # I/O
-# ToDo := check channels indexed in 0, 1
 input_channel: 0
 led_channel: 0
-nof_tracks: 8
 output_channel: 0
+
+# Sequencer
+nof_tracks: 8
 steps_per_track: 16
+nof_displayed_tracks: 1
+
+# leds settings
 led_config: 
     led_mode: "handled"
     led_map_out: null
     led_channel: 0
+
+# notes I/O
 note_input_map:
 - 60
 - 61

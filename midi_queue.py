@@ -1,4 +1,3 @@
-import time
 import mido
 import queue
 import logging
@@ -30,6 +29,10 @@ class MidiQueue(threading.Thread):
         """
         # self._wallclock += deltatime
         # log.debug("IN: @%0.6f %r", self._wallclock, message)
+        if isinstance(message, (tuple, list)) and len(message) == 2:
+            # skip the timestamp
+            message, _ = message
+
         if self.filter(message):
             self.queue.put(message)
 

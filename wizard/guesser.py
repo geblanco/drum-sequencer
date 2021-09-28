@@ -83,7 +83,7 @@ class MidiWaiter:
 
     def flush_controller_queue(self):
         message = self.midiin.get_message()
-        while message != None:
+        while message is not None:
             message = self.midiin.get_message()
 
     def wait_for_key(self, note_mode=None):
@@ -113,4 +113,4 @@ class MidiWaiter:
         return mido.parse(message) if isinstance(message, list) else message
 
 
-__all__ = ["Guesser", "MidiWaiter"]
+# __all__ = ["Guesser", "MidiWaiter"]

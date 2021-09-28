@@ -1,7 +1,7 @@
 import time
 import logging
 
-from.internal_clock import InternalClock
+from .internal_clock import InternalClock
 from collections import deque
 from rtmidi.midiconstants import (
     TIMING_CLOCK, SONG_CONTINUE, SONG_START, SONG_STOP

@@ -1,20 +1,37 @@
+# noqa: E402
+
 import sys
 import yaml
 import time
 import mido
 
-sys.path.append("..")
 from math import floor
-from guesser import Guesser
-from prompts import (
+from pathlib import Path
+from rtmidi.midiutil import open_midiinput, open_midioutput
+
+sys.path.append("..")
+from guesser import Guesser  # noqa: E402
+from modes import TrackMode, TrackSelectMode, NoteMode  # noqa: E402
+from prompts import (  # noqa: E402
     query_num,
     query_choices,
     query_yn,
     confirm_pad,
     _HELP_STR_,
 )
-from modes import TrackMode, TrackSelectMode, NoteMode
-from rtmidi.midiutil import open_midiinput, open_midioutput
+
+
+sequencer_keys = [
+    "output_channel",
+    "nof_displayed_tracks",
+    "nof_tracks",
+    "steps_per_track",
+]
+
+track_modes = [
+    "track_mode",
+    "track_select_mode",
+]
 
 
 def channel_and_note_mode(waiter):
@@ -60,48 +77,54 @@ def display_track(midiout, notes):
         time.sleep(0.1)
 
 
-def setup_controller(midiin, midiout):
+def setup_sequencer():
     # Setup:
     #  - nof tracks
     #  - nof steps
     #  - track mode: select tracks, all_tracks, nof display tracks
-    #  - for each displayed track, midiin, midiout, ledout
-    #    midiout (can default to gmd spec)
-
-    nof_tracks = query_num("Number of tracks?", int, sample=list(range(1, 8)))
-    if nof_tracks < 1:
-        raise ValueError(
-            "Less than 1 track? Really?"
-        )
-
-    nof_steps = query_num(
-        "Number of steps per track?", int, sample=list(range(4, 32, 4))
+    nof_tracks = query_num(
+        "Number of tracks?",
+        type_=int,
+        sample=list(range(1, 8)),
+        constraints=[1, 32]
     )
-    if nof_steps < 8:
-        raise ValueError(
-            "Less than 8 steps? Is this a joke?"
-        )
-
+    nof_steps = query_num(
+        "Number of steps per track?",
+        type_=int,
+        sample=list(range(4, 32, 4)),
+        constraints=[8, 64]
+    )
     nof_displayed_tracks = query_num(
         "How many tracks your controller displays at once?",
-        type_=int, sample=list(range(1, 8))
+        type_=int,
+        sample=list(range(1, 8)),
+        constraints=[1, 32]
     )
 
-    if nof_displayed_tracks < 1:
-        raise ValueError(
-            "Your controller cannot display any track? Seriously?"
-        )
-
     text = "Output MIDI channel for the Sequencer?"
-    sequencer_channel = query_num(text, int, sample=list(range(1, 16 + 1)))
+    sequencer_channel = query_num(
+        text,
+        type_=int,
+        sample=list(range(1, 16 + 1)),
+        constraints=[1, 16]
+    )
     # account for 0ed index
     sequencer_channel -= 1
 
-    guesser = Guesser(midiin, midiout)
-    i_channel, o_channel, note_mode = channel_and_note_mode(guesser.waiter)
+    return dict(
+        output_channel=sequencer_channel,
+        nof_displayed_tracks=nof_displayed_tracks,
+        nof_tracks=nof_tracks,
+        steps_per_track=nof_steps,
+    )
 
+
+def setup_track_modes(config):
+    nof_tracks = config["nof_tracks"]
+    nof_displayed_tracks = config["nof_displayed_tracks"]
     track_mode = TrackMode.all_tracks
     track_select_mode = TrackSelectMode.arrows
+
     if nof_displayed_tracks < nof_tracks:
         track_select_mode = query_choices(
             "Select track mode",
@@ -109,23 +132,49 @@ def setup_controller(midiin, midiout):
         )
         if track_select_mode == "a":
             track_select_mode = TrackSelectMode.arrows
-            nof_select_pads = 2
         else:
             track_select_mode = TrackSelectMode.select
-            raw_select = nof_tracks / nof_displayed_tracks
-            if raw_select > floor(raw_select):
-                raw_select += 1
-            nof_select_pads = int(raw_select)
 
         track_mode = TrackMode.select_tracks
 
+    return dict(
+        track_mode=track_mode,
+        track_select_mode=track_select_mode,
+    )
+
+
+def get_num_select_pads(config):
+    if config["track_select_mode"] == TrackSelectMode.arrows:
+        nof_select_pads = 2
+    else:
+        raw_select = config["nof_tracks"] / config["nof_displayed_tracks"]
+        if raw_select > floor(raw_select):
+            raw_select += 1
+        nof_select_pads = int(raw_select)
+
+    return nof_select_pads
+
+
+def setup_controller(midiin, midiout, config):
+    nof_steps = config["nof_steps"]
+    nof_displayed_tracks = config["nof_displayed_tracks"]
+    track_mode = config["track_mode"]
+    track_select_mode = config["track_select_mode"]
+    nof_select_pads = get_num_select_pads(config)
+
+    print("> Basics -----------------------------------------------")
+    guesser = Guesser(midiin, midiout)
+    i_channel, o_channel, note_mode = channel_and_note_mode(guesser.waiter)
+
     track_select_pads = None
     if track_mode == TrackMode.select_tracks:
-        print("Track selection pads")
+        print("> Track selection pads ---------------------------------")
         track_select_pads = guesser.guess_select_track(amount=nof_select_pads)
 
+    print("> Tracks config: First track ---------------------------")
     note_input_map = guesser.guess_one_track(amount=nof_steps, step=4)
     if nof_displayed_tracks > 1:
+        print("> Tracks config: Rest of tracks-------------------------")
         note_input_map.extend(guesser.guess_tracks(
             note_input_map, amount=nof_displayed_tracks - 1
         ))
@@ -140,29 +189,43 @@ def setup_controller(midiin, midiout):
         print("Sorry, something went wrong...")
 
     return dict(
+        **config,
         note_mode=str(note_mode),
         track_mode=str(track_mode),
         track_select_mode=str(track_select_mode),
         input_channel=i_channel,
-        output_channel=sequencer_channel,
         led_channel=o_channel,
-        nof_tracks=nof_tracks,
-        steps_per_track=nof_steps,
         note_input_map=note_input_map,
         track_select_map=track_select_pads,
     )
 
 
 def main(overwrite=False):
+    print(_HELP_STR_)
     midiin, in_portname = open_midiinput(interactive=True)
     midiout, out_portname = open_midioutput(interactive=True)
-    flush_controller(midiout)
+    conf_name = in_portname.split(":")[0].lower().replace(" ", "_") + ".yaml"
+    conf_path = Path("controllers").joinpath(conf_name)
+    config = {}
     try:
-        conf = setup_controller(midiin, midiout)
-        conf_name = in_portname.split(":")[0].lower().replace(" ", "_") + ".yaml"
+        if conf_path.exists():
+            text = f"Found already existing config in {conf_path}. Load it?"
+            if query_yn(text):
+                config = yaml.safe_load(open(conf_path, "r"))
 
+        if any([config.get(key, None) is None for key in sequencer_keys]):
+            print("=================== Sequencer Config ===================")
+            config.update(**setup_sequencer())
+
+        if any([config.get(key, None) is None for key in track_modes]):
+            print("=================== Track Config =======================")
+            config.update(**setup_track_modes(config))
+
+        flush_controller(midiout)
+        print("=================== Controller Config ==================")
+        config = setup_controller(midiin, midiout, config)
         with open(conf_name, "w") as fout:
-            fout.write(yaml.dump(conf))
+            fout.write(yaml.dump(config))
     except Exception as ex:
         print(ex)
         raise ex
