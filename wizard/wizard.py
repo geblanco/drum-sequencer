@@ -5,13 +5,19 @@ import yaml
 import time
 import mido
 
+from enum import Enum
 from math import floor
 from pathlib import Path
 from rtmidi.midiutil import open_midiinput, open_midioutput
 
 sys.path.append("..")
 from guesser import Guesser  # noqa: E402
-from modes import TrackMode, TrackSelectMode, NoteMode  # noqa: E402
+from modes import (  # noqa: E402
+    TrackMode,
+    TrackSelectMode,
+    NoteMode,
+    LedColors,
+)
 from prompts import (  # noqa: E402
     query_num,
     query_choices,
@@ -35,15 +41,12 @@ track_modes = [
 
 
 def channel_and_note_mode(waiter):
+    flush_controller(waiter.midiout)
     print("Press any pad on the controller")
     query_pad = waiter.wait_for_key()
     input_channel = query_pad.channel
-    if query_yn("Is the pad still on?"):
-        note_mode = NoteMode.default
-        query_pad.type = "note_off"
-        query_pad.velocity = 0
-        waiter.midiout.send_message(query_pad)
-    else:
+    note_mode = NoteMode.default
+    if not query_yn("Is the pad still on?"):
         note_mode = NoteMode.toggle
 
     text = "Does this light the same button?"
@@ -57,13 +60,29 @@ def channel_and_note_mode(waiter):
     return input_channel, output_channel, note_mode
 
 
+def multi_color_check(waiter):
+    flush_controller(waiter.midiout)
+    led_colors = LedColors.default
+    print("Velocity controlled colors. Press any key on the controller")
+    query_pad = waiter.wait_for_key()
+    query_pad.velocity = 64
+    waiter.midiout.send_message(query_pad.bytes())
+    if query_yn("Is the pad on?"):
+        query_pad.velocity = (query_pad.velocity + 50) % 127
+        waiter.midiout.send_message(query_pad.bytes())
+        if query_yn("Has it changed its color?"):
+            led_colors = LedColors.velocity
+
+    return led_colors
+
+
 def flush_controller(midiout):
     for i in range(127):
         message = mido.Message(type="note_off", note=i, velocity=0)
         midiout.send_message(message.bytes())
 
 
-def display_track(midiout, notes):
+def display_track(midiout, notes, nof_steps, led_colors):
     # light off
     for note in notes:
         if note > 127:
@@ -71,13 +90,35 @@ def display_track(midiout, notes):
         message = mido.Message(type="note_off", note=note, velocity=0)
         midiout.send_message(message.bytes())
 
-    for note in notes:
-        message = mido.Message(type="note_on", note=note, velocity=127)
+    nof_tracks = len(notes) // nof_steps
+    velocities = [127] * nof_tracks
+    if led_colors == LedColors.velocity:
+        start_incr = 127 // nof_tracks
+        velocities = list(range(start_incr, 127, start_incr))
+
+    for id, note in enumerate(notes):
+        message = mido.Message(
+            type="note_on", note=note, velocity=velocities[id // nof_steps]
+        )
         midiout.send_message(message.bytes())
-        time.sleep(0.1)
+        if ((id + 1) % 16) == 0:
+            time.sleep(0.5)
+
+
+def get_num_select_pads(config):
+    if config["track_select_mode"] == TrackSelectMode.arrows:
+        nof_select_pads = 2
+    else:
+        raw_select = config["nof_tracks"] / config["nof_displayed_tracks"]
+        if raw_select > floor(raw_select):
+            raw_select += 1
+        nof_select_pads = int(raw_select)
+
+    return nof_select_pads
 
 
 def setup_sequencer():
+    print("\n=================== Sequencer Config ===================")
     # Setup:
     #  - nof tracks
     #  - nof steps
@@ -126,6 +167,7 @@ def setup_track_modes(config):
     track_select_mode = TrackSelectMode.arrows
 
     if nof_displayed_tracks < nof_tracks:
+        print("\n=================== Track Config =======================")
         track_select_mode = query_choices(
             "Select track mode",
             choices=[en.value for en in TrackSelectMode]
@@ -143,20 +185,9 @@ def setup_track_modes(config):
     )
 
 
-def get_num_select_pads(config):
-    if config["track_select_mode"] == TrackSelectMode.arrows:
-        nof_select_pads = 2
-    else:
-        raw_select = config["nof_tracks"] / config["nof_displayed_tracks"]
-        if raw_select > floor(raw_select):
-            raw_select += 1
-        nof_select_pads = int(raw_select)
-
-    return nof_select_pads
-
-
 def setup_controller(midiin, midiout, config):
-    nof_steps = config["nof_steps"]
+    print("\n=================== Controller Config ==================")
+    nof_steps = config["steps_per_track"]
     nof_displayed_tracks = config["nof_displayed_tracks"]
     track_mode = config["track_mode"]
     track_select_mode = config["track_select_mode"]
@@ -165,43 +196,43 @@ def setup_controller(midiin, midiout, config):
     print("> Basics -----------------------------------------------")
     guesser = Guesser(midiin, midiout)
     i_channel, o_channel, note_mode = channel_and_note_mode(guesser.waiter)
+    led_colors = multi_color_check(guesser.waiter)
 
+    flush_controller(midiout)
     track_select_pads = None
     if track_mode == TrackMode.select_tracks:
-        print("> Track selection pads ---------------------------------")
+        print("\n> Track selection pads ---------------------------------")
         track_select_pads = guesser.guess_select_track(amount=nof_select_pads)
 
-    print("> Tracks config: First track ---------------------------")
+    flush_controller(midiout)
+    print("\n> Tracks config: First track ---------------------------")
     note_input_map = guesser.guess_one_track(amount=nof_steps, step=4)
+    display_track(midiout, note_input_map, nof_steps, LedColors.default)
     if nof_displayed_tracks > 1:
-        print("> Tracks config: Rest of tracks-------------------------")
-        note_input_map.extend(guesser.guess_tracks(
-            note_input_map, amount=nof_displayed_tracks - 1
-        ))
-
-    display_track(midiout, note_input_map)
-    if query_yn("Did the track correctly lit?"):
-        print(
-            "Great!!\nWe are finished, go on and create some music!\n"
-            "Don't forget to share your config so other folks can use it! (:"
+        print("\n> Tracks config: Rest of tracks-------------------------")
+        new_map = guesser.guess_tracks(
+            note_input_map[:16], amount=nof_displayed_tracks - 1
         )
-    else:
-        print("Sorry, something went wrong...")
+        note_input_map.extend(new_map)
 
-    return dict(
-        **config,
-        note_mode=str(note_mode),
-        track_mode=str(track_mode),
-        track_select_mode=str(track_select_mode),
+    ret = config.copy()
+    ret.update(
+        note_mode=note_mode,
         input_channel=i_channel,
         led_channel=o_channel,
         note_input_map=note_input_map,
         track_select_map=track_select_pads,
+        led_colors=led_colors,
     )
+    return ret
 
 
 def main(overwrite=False):
     print(_HELP_STR_)
+    print(
+        "You will now be prompted to select MIDI I/O for your controller.\n"
+        "Don't select to create virtual ports!"
+    )
     midiin, in_portname = open_midiinput(interactive=True)
     midiout, out_portname = open_midioutput(interactive=True)
     conf_name = in_portname.split(":")[0].lower().replace(" ", "_") + ".yaml"
@@ -214,18 +245,36 @@ def main(overwrite=False):
                 config = yaml.safe_load(open(conf_path, "r"))
 
         if any([config.get(key, None) is None for key in sequencer_keys]):
-            print("=================== Sequencer Config ===================")
             config.update(**setup_sequencer())
 
         if any([config.get(key, None) is None for key in track_modes]):
-            print("=================== Track Config =======================")
             config.update(**setup_track_modes(config))
 
         flush_controller(midiout)
-        print("=================== Controller Config ==================")
         config = setup_controller(midiin, midiout, config)
-        with open(conf_name, "w") as fout:
+        for key, value in config.items():
+            if isinstance(value, Enum):
+                config[key] = value.value
+
+        with open(conf_path, "w") as fout:
             fout.write(yaml.dump(config))
+
+        display_track(
+            midiout,
+            config["note_input_map"],
+            config["steps_per_track"],
+            LedColors(config["led_colors"]),
+        )
+        if query_yn("Did the track correctly lit?"):
+            print(
+                "Great!!\nWe are finished, go on and create some music!\n"
+                "Don't forget to share your config so other folks can use it! (:"
+            )
+        else:
+            print("Sorry, something went wrong...")
+
+        print(f"Your config is saved in {conf_name}")
+
     except Exception as ex:
         print(ex)
         raise ex

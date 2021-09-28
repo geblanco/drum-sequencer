@@ -67,7 +67,6 @@ class Guesser:
             print(f"Select first pad of track {i + 2}")
             query_pad = self.waiter.wait_for_key(NoteMode.toggle)
             diff = first_track_map[0] - query_pad.note
-            guessed.append(query_pad.note)
             for i in range(0, len(first_track_map)):
                 note = first_track_map[i] - diff
                 guessed.append(note)
@@ -82,6 +81,12 @@ class MidiWaiter:
         self.max_retries = max_retries
 
     def flush_controller_queue(self):
+        message = self.midiin.get_message()
+        while message is not None:
+            message = self.midiin.get_message()
+
+        # do it twice
+        time.sleep(0.5)
         message = self.midiin.get_message()
         while message is not None:
             message = self.midiin.get_message()

@@ -4,13 +4,15 @@ import mido
 _HELP_STR_ = """
 This wizard will help you configure your controller. It will guide you through
 the process step by step, if any of the requested options is not clear, you
-can hit `h` in any of the prompts to get this message again.
+can hit `h` in any of the prompts to get a description of each option.
 
 The wizard will do it's best to guess your setup, but it may fail, you can
 always complete or fix your configuration in the `user_config.yaml` file.
 
 This is an Open Source initiative, if you created a nice setup for your
-controller, please share it at: # ToDo := share url. Thanks! (:
+controller, please share it at: # ToDo := share url so others can use it too.
+
+Thanks! (:
 
 You can always exit the wizard by hitting Ctrl-c
 """
@@ -59,12 +61,12 @@ to handle how tracks will be selected.
 """
 
 
-def check_contraints(reply, type_, contraints):
+def check_constraints(reply, type_, constraints):
     ret = None
     try:
         ret = type_(reply)
-        if contraints is not None:
-            if ret < contraints[0] or ret > contraints[-1]:
+        if constraints is not None:
+            if ret < constraints[0] or ret > constraints[-1]:
                 ret = None
     except Exception:
         pass
@@ -88,25 +90,25 @@ def query_yn(text):
 
 
 def query_choices(text, choices):
-    ans = False
+    ans = None
+    valid = [ch[0].lower() for ch in choices] + [ch.lower() for ch in choices]
     short_ch = "/".join([
         f"[{ch[0].upper()}]{ch[1:].replace('_', ' ')}" for ch in choices
     ])
-    reply = input(f"{text} ({short_ch}): ")
-    reply = reply.strip().lower()
-    if reply == ["h", "help"]:
-        print(_OPTS_STR_)
-        ans = query_choices(text, choices)
-    elif reply == "" or reply not in [ch[0].lower() for ch in choices]:
-        ans = query_choices(text, choices)
-    elif reply in short_ch:
-        ans = reply
+
+    while ans is None:
+        reply = input(f"{text} ({short_ch}): ")
+        reply = reply.strip().lower()
+        if reply in ["h", "help"]:
+            print(_OPTS_STR_)
+        elif reply != "" and reply in valid:
+            ans = reply
 
     return ans
 
 
-def query_num(text, type_=None, sample=None, contraints=None):
-    ans = False
+def query_num(text, type_=None, sample=None, constraints=None):
+    ans = None
     if sample is not None:
         if not isinstance(sample, list):
             sample = [sample]
@@ -120,24 +122,23 @@ def query_num(text, type_=None, sample=None, contraints=None):
     if not text.endswith(": "):
         text += ": "
 
-    reply = input(text)
-    reply = reply.strip().lower()
-    if reply == ["h", "help"]:
-        print(_OPTS_STR_)
-        ans = query_num(text, type_, sample)
-    elif reply == "":
-        ans = query_num(text, type_, sample)
-    elif type_ is not None:
-        ans = check_contraints(reply, type_, contraints)
-        if ans is None:
-            text = "Invalid input, it must be a number! "
-            if contraints is not None:
-                text += f"And be between {contraints[0]} and {contraints[-1]}"
+    while ans is None:
+        reply = input(text)
+        reply = reply.strip().lower()
+        if reply in ["h", "help"]:
+            print(_OPTS_STR_)
+        elif reply != "":
+            if type_ is not None:
+                ans = check_constraints(reply, type_, constraints)
+                if ans is None:
+                    err = "Invalid input, it must be a number! "
+                    if constraints is not None:
+                        err += f"And be between {constraints[0]} and {constraints[-1]}"
 
-            print(text)
-            ans = query_num(text, type_, sample, contraints)
-    else:
-        ans = reply
+                    print(err)
+            else:
+                ans = reply
+
 
     return ans
 

@@ -28,6 +28,11 @@ class LedMode(Enum):
     unhandled = "unhandled"
 
 
+class LedColors(Enum):
+    default = None
+    velocity = True
+
+
 class TrackMode(Enum):
     """Track modes
     * Select-tracks: Only one track at a time is displayed.
