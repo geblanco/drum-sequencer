@@ -2,6 +2,7 @@ import mido
 import time
 
 from modes import NoteMode
+from prompts import query_num
 
 
 class Guesser:
@@ -12,18 +13,23 @@ class Guesser:
         self.waiter = MidiWaiter(midiin, midiout, max_retries=-1)
 
     @staticmethod
-    def fill_anchors(anchors, step=4):
+    def fill_anchors(anchors, ncols):
+        print("filling anchors", "anchors", anchors, ncols)
         guessed = []
+        incr = 1
         dir = -1 if anchors[-2] - anchors[-1] > 0 else 1
-        anchors.append(anchors[-1] + (dir * step))
-        for i in range(1, len(anchors)):
-            start = anchors[i-1]
-            end = anchors[i]
-            if abs(start-end) % step != 0:
-                # row skip
-                end = start + (dir * step)
-            guessed.extend([start + (dir * i) for i in range(step)])
-            # else contiguous
+        if abs(anchors[-1] - anchors[-2]) > ncols:
+            # skip rows, hope for the best...
+            incr = abs(anchors[-1] - anchors[-2]) // (ncols -1)
+
+        for i in range(0, len(anchors), 2):
+            start = anchors[i]
+            end = anchors[i + 1]
+            amount = abs(start - end)
+            guessed.extend([start + (dir * i) for i in range(0, amount, incr)])
+            guessed.append(end)
+
+        print("guessed", guessed)
         return guessed
 
     def guess_select_track(self, amount):
@@ -49,21 +55,38 @@ class Guesser:
 
         return anchors
 
-    def guess_one_track(self, amount, step=4):
+    def guess_one_track(self, nof_steps):
         anchors = []
-        for pad_id in range(1, amount + 1, step):
-            print(f"Select pad number: {pad_id}")
-            query_pad = self.waiter.wait_for_key(NoteMode.toggle)
-            anchors.append(query_pad.note)
+        nrows = query_num(
+            "Number of rows?",
+            type_=int,
+            sample=list(range(1, 6)),
+            constraints=[1, 12]
+        )
+        ncols = query_num(
+            "Number of columns?",
+            type_=int,
+            sample=list(range(1, 6)),
+            constraints=[1, 12]
+        )
+        assert(nof_steps == ncols * nrows)
+        for row_id in range(nrows):
+            for col_id in [1, ncols]:
+                pad_id = (row_id * ncols) + col_id
+                print(f"Select pad number: {pad_id}")
+                query_pad = self.waiter.wait_for_key(NoteMode.toggle)
+                anchors.append(query_pad.note)
 
-        if len(anchors) == amount:
+        if len(anchors) == nof_steps:
             return anchors
 
-        return Guesser.fill_anchors(anchors)
+        guessed = Guesser.fill_anchors(anchors, ncols)
+        assert(len(guessed) == nof_steps)
+        return guessed
 
-    def guess_tracks(self, first_track_map, amount):
+    def guess_tracks(self, first_track_map, nof_tracks):
         guessed = []
-        for i in range(0, amount):
+        for i in range(0, nof_tracks):
             print(f"Select first pad of track {i + 2}")
             query_pad = self.waiter.wait_for_key(NoteMode.toggle)
             diff = first_track_map[0] - query_pad.note

@@ -193,10 +193,18 @@ def setup_controller(midiin, midiout, config):
     track_select_mode = config["track_select_mode"]
     nof_select_pads = get_num_select_pads(config)
 
-    print("> Basics -----------------------------------------------")
     guesser = Guesser(midiin, midiout)
-    i_channel, o_channel, note_mode = channel_and_note_mode(guesser.waiter)
-    led_colors = multi_color_check(guesser.waiter)
+    io_keys = ["input_channel", "output_channel", "note_mode"]
+    if any([config.get(key, None) is None for key in io_keys]):
+        print("> Basics -----------------------------------------------")
+        i_channel, o_channel, note_mode = channel_and_note_mode(guesser.waiter)
+    else:
+        i_channel, o_channel, note_mode = [config.get(key) for key in io_keys]
+
+    if config.get("led_colors", None) is None:
+        led_colors = multi_color_check(guesser.waiter)
+    else:
+        led_colors = LedColors(config.get("led_colors"))
 
     flush_controller(midiout)
     track_select_pads = None
@@ -206,12 +214,12 @@ def setup_controller(midiin, midiout, config):
 
     flush_controller(midiout)
     print("\n> Tracks config: First track ---------------------------")
-    note_input_map = guesser.guess_one_track(amount=nof_steps, step=4)
+    note_input_map = guesser.guess_one_track(nof_steps=nof_steps)
     display_track(midiout, note_input_map, nof_steps, LedColors.default)
     if nof_displayed_tracks > 1:
         print("\n> Tracks config: Rest of tracks-------------------------")
         new_map = guesser.guess_tracks(
-            note_input_map[:16], amount=nof_displayed_tracks - 1
+            note_input_map[:16], nof_tracks=nof_displayed_tracks - 1
         )
         note_input_map.extend(new_map)
 
