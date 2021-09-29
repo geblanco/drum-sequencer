@@ -14,6 +14,18 @@ from modes import TrackMode, NoteMode
 #   note_out map are notes mapped to tracks, each track emmits only on a note
 #   - track -> output note
 # - think about outputs
+# config contains:
+# - output_channel
+# - nof_tracks
+# - nof_steps
+# - note_input_map
+# - note_mode
+# - track_mode
+# - track_select_map
+# - track_select_mode
+# - nof_displayed_tracks
+# - led_channel
+# - led_colors
 class Sequencer(object):
     def __init__(
         self,
@@ -21,7 +33,7 @@ class Sequencer(object):
         output_channel=0,
         output_queue=None,
         nof_tracks=8,
-        steps_per_track=16,
+        nof_steps=16,
         track_select_map=None,
         note_input_map=None,
         note_output_map=None,
@@ -33,7 +45,7 @@ class Sequencer(object):
         self.output_channel = output_channel
         self.output_queue = output_queue
         self.nof_tracks = nof_tracks
-        self.steps_per_track = steps_per_track
+        self.nof_steps = nof_steps
         self.track_select_map = track_select_map
         self.note_input_map = note_input_map
         self.note_output_map = note_output_map
@@ -58,17 +70,17 @@ class Sequencer(object):
         self.tracks = []
         for track_id in range(self.nof_tracks):
             if self.track_mode == TrackMode.all_tracks:
-                start = track_id * self.steps_per_track
-                end = (track_id * self.steps_per_track + self.steps_per_track)
+                start = track_id * self.nof_steps
+                end = (track_id * self.nof_steps + self.nof_steps)
             else:
                 start = 0
-                end = self.steps_per_track
+                end = self.nof_steps
             # ToDo := notes map
             track = Track(
                 track_id=track_id,
                 track_mode=self.track_mode,
                 note_mode=self.note_mode,
-                nof_steps=self.steps_per_track,
+                nof_steps=self.nof_steps,
                 note_input_map=self.note_input_map[start:end],
                 led_mode=self.led_config.led_mode,
                 led_output_map=self.led_config.led_map_out[start:end],
@@ -98,7 +110,7 @@ class Sequencer(object):
 
     def _track_id_from_note_map(self, note):
         track_id = self.note_input_map.index(note)
-        track_id = math.floor(track_id / self.steps_per_track)
+        track_id = math.floor(track_id / self.nof_steps)
         return track_id
 
     def _select_track(self, track_id):
@@ -126,7 +138,7 @@ class Sequencer(object):
         print("tick")
         msgs = self._get_midimsgs_from_tracks()
         self.output_queue.put(msgs)
-        self._current_beat = (self._current_beat + 1) % self.steps_per_track
+        self._current_beat = (self._current_beat + 1) % self.nof_steps
 
     def start(self):
         self._current_beat = 0

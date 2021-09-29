@@ -11,7 +11,7 @@ output_channel: 0
 
 # Sequencer
 nof_tracks: 8
-steps_per_track: 16
+nof_steps: 16
 nof_displayed_tracks: 1
 
 # leds settings

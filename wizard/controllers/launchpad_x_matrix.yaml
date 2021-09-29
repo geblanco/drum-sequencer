@@ -3,6 +3,7 @@ led_channel: 0
 led_colors: true
 nof_displayed_tracks: 4
 nof_tracks: 5
+nof_steps: 16
 note_input_map:
 - 81
 - 82
@@ -70,7 +71,6 @@ note_input_map:
 - 18
 note_mode: toggle
 output_channel: 0
-steps_per_track: 16
 track_mode: TrackMode.select_tracks
 track_select_map: null
 track_select_mode: TrackSelectMode.arrows

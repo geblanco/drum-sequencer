@@ -100,7 +100,7 @@ def create_classes(
         output_channel=config.output_channel,
         output_queue=output_queue,
         nof_tracks=config.nof_tracks,
-        steps_per_track=config.steps_per_track,
+        nof_steps=config.nof_steps,
         track_select_map=config.get("track_select_map", None),
         note_input_map=config.note_input_map,
         note_output_map=config.note_output_map,

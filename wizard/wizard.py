@@ -31,7 +31,7 @@ sequencer_keys = [
     "output_channel",
     "nof_displayed_tracks",
     "nof_tracks",
-    "steps_per_track",
+    "nof_steps",
 ]
 
 track_modes = [
@@ -156,7 +156,7 @@ def setup_sequencer():
         output_channel=sequencer_channel,
         nof_displayed_tracks=nof_displayed_tracks,
         nof_tracks=nof_tracks,
-        steps_per_track=nof_steps,
+        nof_steps=nof_steps,
     )
 
 
@@ -187,7 +187,7 @@ def setup_track_modes(config):
 
 def setup_controller(midiin, midiout, config):
     print("\n=================== Controller Config ==================")
-    nof_steps = config["steps_per_track"]
+    nof_steps = config["nof_steps"]
     nof_displayed_tracks = config["nof_displayed_tracks"]
     track_mode = config["track_mode"]
     track_select_mode = config["track_select_mode"]
@@ -252,6 +252,12 @@ def main(overwrite=False):
             if query_yn(text):
                 config = yaml.safe_load(open(conf_path, "r"))
 
+        if config.get("led_config", None) is not None:
+            for key, value in config["led_config"].items():
+                config[key] = value
+
+            del config["led_config"]
+
         if any([config.get(key, None) is None for key in sequencer_keys]):
             config.update(**setup_sequencer())
 
@@ -260,9 +266,18 @@ def main(overwrite=False):
 
         flush_controller(midiout)
         config = setup_controller(midiin, midiout, config)
+        led_config = {}
         for key, value in config.items():
             if isinstance(value, Enum):
                 config[key] = value.value
+
+            if key.startswith("led"):
+                led_config[key] = config[key]
+
+        for key in led_config.keys():
+            del config[key]
+
+        config["led_config"] = led_config
 
         with open(conf_path, "w") as fout:
             fout.write(yaml.dump(config))
@@ -270,7 +285,7 @@ def main(overwrite=False):
         display_track(
             midiout,
             config["note_input_map"],
-            config["steps_per_track"],
+            config["nof_steps"],
             LedColors(config["led_colors"]),
         )
         if query_yn("Did the track correctly lit?"):
