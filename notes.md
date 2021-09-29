@@ -44,9 +44,9 @@ ToDo
 - ~~move modes to separate files (remove utils?)~~
 - ~~wizard: setup velocity controller supports different lights? check velocity changes color~~
 
-- displayed tracks when TrackMode in select_tracks:
-  A&H displays one track, launchpad can display more...
-  check: \_select\_track and process in sequencer
 - main: load config from controller
 - note_i/o_map: add type spec, pads can emmit cc or note, handle this situation
 - led_i/o: handle led colors by velocity
+- displayed tracks when TrackMode in select_tracks:
+  A&H displays one track, launchpad can display more...
+  check: \_select\_track and process in sequencer
