@@ -7,10 +7,13 @@ import mido
 
 from enum import Enum
 from math import floor
-from pathlib import Path
-from rtmidi.midiutil import open_midiinput, open_midioutput
 
 sys.path.append("..")
+from controller import (  # noqa: E402
+    flush_controller,
+    open_controller,
+    search_controller_config,
+)
 from guesser import Guesser  # noqa: E402
 from modes import (  # noqa: E402
     TrackMode,
@@ -56,8 +59,7 @@ def channel_and_note_mode(waiter):
             " information! This probably means that your controller "
         )
 
-    output_channel = query_pad.channel
-    return input_channel, output_channel, note_mode
+    return input_channel, note_mode
 
 
 def multi_color_check(waiter):
@@ -74,12 +76,6 @@ def multi_color_check(waiter):
             led_color_mode = LedColors.velocity
 
     return led_color_mode
-
-
-def flush_controller(midiout):
-    for i in range(127):
-        message = mido.Message(type="note_off", note=i, velocity=0)
-        midiout.send_message(message.bytes())
 
 
 def generate_track_velocities(nof_tracks):
@@ -195,16 +191,15 @@ def setup_controller(midiin, midiout, config):
     nof_steps = config["nof_steps"]
     nof_displayed_tracks = config["nof_displayed_tracks"]
     track_mode = config["track_mode"]
-    track_select_mode = config["track_select_mode"]
     nof_select_pads = get_num_select_pads(config)
 
     guesser = Guesser(midiin, midiout)
-    io_keys = ["input_channel", "output_channel", "note_mode"]
+    io_keys = ["input_channel", "note_mode"]
     if any([config.get(key, None) is None for key in io_keys]):
         print("> Basics -----------------------------------------------")
-        i_channel, o_channel, note_mode = channel_and_note_mode(guesser.waiter)
+        i_channel, note_mode = channel_and_note_mode(guesser.waiter)
     else:
-        i_channel, o_channel, note_mode = [config.get(key) for key in io_keys]
+        i_channel, note_mode = [config.get(key) for key in io_keys]
 
     if config.get("led_color_mode", None) is None:
         led_color_mode = multi_color_check(guesser.waiter)
@@ -228,16 +223,48 @@ def setup_controller(midiin, midiout, config):
         )
         note_input_map.extend(new_map)
 
-    ret = config.copy()
-    ret.update(
+    return dict(
         note_mode=note_mode,
         input_channel=i_channel,
-        led_channel=o_channel,
         note_input_map=note_input_map,
         track_select_map=track_select_pads,
-        led_color_mode=led_color_mode,
+        led_config=dict(
+            led_channel=i_channel,
+            led_color_mode=led_color_mode
+        )
     )
+
+
+def setup_velocities(config):
+    ret = {}
+    if config["led_color_mode"] == LedColors.velocity:
+        velocities = generate_track_velocities(config["nof_tracks"])
+        ret["led_colors"] = velocities
+
     return ret
+
+
+def serialize_dict(config_dict):
+    config = config_dict.copy()
+    for key, value in config.items():
+        if isinstance(value, Enum):
+            config[key] = value.value
+        elif isinstance(value, dict):
+            for subk, subv in value.items():
+                if isinstance(subv, Enum):
+                    config[key][subk] = subv.value
+
+    return config
+
+
+def load_config(conf_path):
+    config = {}
+    if conf_path.exists():
+        text = f"Found already existing config in {conf_path}. Load it?"
+        if query_yn(text):
+            config = yaml.safe_load(open(conf_path, "r"))
+
+    return config
 
 
 def main(overwrite=False):
@@ -246,23 +273,13 @@ def main(overwrite=False):
         "You will now be prompted to select MIDI I/O for your controller.\n"
         "Don't select to create virtual ports!"
     )
-    midiin, in_portname = open_midiinput(interactive=True)
-    midiout, out_portname = open_midioutput(interactive=True)
-    conf_name = in_portname.split(":")[0].lower().replace(" ", "_") + ".yaml"
-    conf_path = Path("controllers").joinpath(conf_name)
-    config = {}
+
+    ctrl = open_controller()
+    midiin, midiout = ctrl["input_port"], ctrl["output_port"]
+    portname = ctrl["input_name"]
+    conf_path = search_controller_config(portname)
+    config = load_config(conf_path)
     try:
-        if conf_path.exists():
-            text = f"Found already existing config in {conf_path}. Load it?"
-            if query_yn(text):
-                config = yaml.safe_load(open(conf_path, "r"))
-
-        if config.get("led_config", None) is not None:
-            for key, value in config["led_config"].items():
-                config[key] = value
-
-            del config["led_config"]
-
         if any([config.get(key, None) is None for key in sequencer_keys]):
             config.update(**setup_sequencer())
 
@@ -270,24 +287,9 @@ def main(overwrite=False):
             config.update(**setup_track_modes(config))
 
         flush_controller(midiout)
-        config = setup_controller(midiin, midiout, config)
-        led_config = {}
-        for key, value in config.items():
-            if isinstance(value, Enum):
-                config[key] = value.value
-
-            if key.startswith("led"):
-                led_config[key] = config[key]
-
-        if config["led_color_mode"] == LedColors.velocity:
-            velocities = generate_track_velocities(config["nof_tracks"])
-            led_config["led_colors"] = velocities
-
-        for key in led_config.keys():
-            if key in config:
-                del config[key]
-
-        config["led_config"] = led_config
+        config.update(**setup_controller(midiin, midiout, config))
+        config["led_config"].update(**setup_velocities(config["led_config"]))
+        config = serialize_dict(config)
 
         with open(conf_path, "w") as fout:
             fout.write(yaml.dump(config))
@@ -296,17 +298,18 @@ def main(overwrite=False):
             midiout,
             config["note_input_map"],
             config["nof_steps"],
-            LedColors(config["led_color_mode"]),
+            LedColors(config["led_config"]["led_color_mode"]),
         )
         if query_yn("Did the track correctly lit?"):
             print(
                 "Great!!\nWe are finished, go on and create some music!\n"
-                "Don't forget to share your config so other folks can use it! (:"
+                "Don't forget to share your config so other folks can use it!"
+                "=)"
             )
         else:
             print("Sorry, something went wrong...")
 
-        print(f"Your config is saved in {conf_name}")
+        print(f"Your config is saved in {conf_path}")
 
     except Exception as ex:
         print(ex)

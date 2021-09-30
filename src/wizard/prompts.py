@@ -133,13 +133,14 @@ def query_num(text, type_=None, sample=None, constraints=None):
                 if ans is None:
                     err = "Invalid input, it must be a number! "
                     if constraints is not None:
-                        err += f"And be between {constraints[0]} and {constraints[-1]}"
+                        err += (
+                            f"And be between {constraints[0]}"
+                            f" and {constraints[-1]}"
+                        )
 
                     print(err)
             else:
                 ans = reply
-
-
     return ans
 
 

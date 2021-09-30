@@ -20,7 +20,7 @@ class Guesser:
         dir = -1 if anchors[-2] - anchors[-1] > 0 else 1
         if abs(anchors[-1] - anchors[-2]) > ncols:
             # skip rows, hope for the best...
-            incr = abs(anchors[-1] - anchors[-2]) // (ncols -1)
+            incr = abs(anchors[-1] - anchors[-2]) // (ncols - 1)
 
         for i in range(0, len(anchors), 2):
             start = anchors[i]

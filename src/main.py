@@ -8,6 +8,11 @@ from rtmidi.midiutil import open_midiinput, open_midioutput
 from sequencer import Sequencer
 from clock.clock import Clock
 from midi_queue import InputQueue, OutputQueue
+from controller import (
+    flush_controller,
+    open_controller,
+    close_controller,
+)
 from modes import (
     TrackMode,
     TrackSelectMode,
@@ -30,18 +35,6 @@ def parse_args():
     return parser.parse_args()
 
 
-def setup_clock(clock_source, controller_input, clock_port):
-    port = None
-    if clock_source == ClockSource.controller:
-        port = controller_input
-    elif clock_source == ClockSource.external:
-        port = open_midiinput(clock_port)
-
-    clock = Clock(clock_source=clock_source, midiin=port)
-
-    return clock
-
-
 def start_controller(controller_input, programmers, portname):
     controller = programmers.get(portname, None)
     if controller is not None:
@@ -62,20 +55,30 @@ def finish_controller(controller_input, programmers, portname):
         print("No programmer found for controller")
 
 
-def create_classes(
-    config,
-    controller_input,
-    controller_output,
-    sequencer_output,
-    clock_source,
-    clock_port,
-):
-    clock = setup_clock(clock_source, controller_input, clock_port)
+def create_clock(controller_input, clock_source, clock_port):
+    port = None
+    if clock_source == ClockSource.controller:
+        port = controller_input
+    elif clock_source == ClockSource.external:
+        port = open_midiinput(clock_port)
 
-    led_channel = config.get("led_channel", None)
-    if led_channel is None:
-        led_channel = config.input_channel
+    clock = Clock(clock_source=clock_source, midiin=port)
 
+    return clock
+
+
+def setup_clock_source(controller_inport, clock_port):
+    if controller_inport == clock_port:
+        clock_source = ClockSource.controller
+    elif clock_port is not None:
+        clock_source = ClockSource.external
+    else:
+        clock_source = ClockSource.internal
+
+    return clock_source
+
+
+def create_queues(config, controller_output, sequencer_output):
     input_queue = InputQueue(
         note_mode=config.note_mode,
         channel=config.input_channel,
@@ -87,25 +90,9 @@ def create_classes(
     )
     led_queue = OutputQueue(
         midiout=controller_output,
-        channel=(
-            config.led_channel
-            if config.led_channel is not None
-            else config.input_channel
-        )
+        channel=config.led_config.get("led_channel", config.input_channel)
     )
-    sequencer = Sequencer(
-        config=config,
-        output_queue=output_queue,
-        led_queue=led_queue
-    )
-
-    return (
-        clock,
-        input_queue,
-        output_queue,
-        led_queue,
-        sequencer,
-    )
+    return (input_queue, output_queue, led_queue)
 
 
 def connect_components(clock, input_queue, controller_input, sequencer):
@@ -141,44 +128,37 @@ def load_config(config):
     return conf
 
 
+def load_programmers():
+    programmers = {}
+    programmers_file = Path("./programmers.yaml")
+    if programmers_file.exists():
+        programmers = OmegaConf.load(programmers_file)
+
+    return programmers
+
+
 def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     config = load_config(config)
     if ctrl_inport is None or output_port is None:
         raise ValueError("Bad I/O ports")
 
-    if ctrl_inport == clock_port:
-        clock_source = ClockSource.controller
-    elif clock_port is not None:
-        clock_source = ClockSource.external
-    else:
-        clock_source = ClockSource.internal
+    if output_port is not None and output_port.strip() == "":
+        output_port = None
 
-    controller_input, portname = open_midiinput(
-        ctrl_inport, interactive=ctrl_inport == default_portname
-    )
-    controller_output, _ = open_midiinput(
-        ctrl_outport, interactive=ctrl_outport == default_portname
-    )
-    sequencer_output, _ = open_midioutput(
-        output_port, interactive=output_port == default_portname
-    )
+    clock_source = setup_clock_source(ctrl_inport, clock_port)
+    ctrl = open_controller(ctrl_inport, ctrl_outport)
+    sequencer_output, _ = open_midioutput(output_port)
+    start_controller(ctrl, load_programmers())
+    flush_controller(ctrl)
 
-    programmers_file = Path("./programmers.yaml")
-    programmers = None
-    if programmers_file.exists():
-        programmers = OmegaConf.load(programmers_file)
-        start_controller(controller_input, programmers, portname)
-
-    clock, input_queue, output_queue, led_queue, sequencer = create_classes(
+    clock = create_clock(ctrl["input_port"], clock_source, clock_port)
+    input_queue, output_queue, led_queue = create_queues(
         config=config,
-        controller_input=controller_input,
-        controller_output=controller_output,
+        controller_output=ctrl["output_port"],
         sequencer_output=sequencer_output,
-        clock_source=clock_source,
-        clock_port=clock_port,
     )
-
-    connect_components(clock, input_queue, controller_input, sequencer)
+    sequencer = Sequencer(config, output_queue, led_queue)
+    connect_components(clock, input_queue, ctrl["input_port"], sequencer)
     # start necessary threads: InputQueue, OutputQueue, clock (if internal)
     try:
         print("Starting threads...")
@@ -195,10 +175,9 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
         input_queue.stop()
         output_queue.stop()
         clock.stop()
-        if programmers is not None:
-            finish_controller(controller_input, programmers, portname)
-        controller_input.close_port()
-        controller_output.close_port()
+
+        finish_controller(ctrl, load_programmers())
+        close_controller(ctrl)
         sequencer_output.close_port()
 
 

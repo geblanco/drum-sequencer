@@ -65,7 +65,9 @@ class MidiQueue(threading.Thread):
         self.queue.put(data)
 
 
-# ToDo := Specific filter for the basics?
+# ToDo :=
+# - Specific filter for the basics?
+# - Allow CC toggle (i.e.: for track selection with arrows?)
 class InputQueue(MidiQueue):
     def __init__(self, note_mode=None, channel=0):
         note_mode = NoteMode(
@@ -83,7 +85,7 @@ class InputQueue(MidiQueue):
             self.filters.append(MidiFilter(event_types=event_types))
         elif self.note_mode == NoteMode.toggle:
             # allow cc as is, only note_on events with velocity > 0
-            # many controllers pass NOTE_ON with veolicity and same with
+            # many controllers pass NOTE_ON with volicity and same with
             # veolicty == 0 when released, avoid duplication
             self.filters.extend([CC(), NoteToggle()])
 
