@@ -2,7 +2,7 @@ import math
 import mido
 
 from track import Track
-from modes import TrackMode, NoteMode
+from modes import TrackMode, TrackSelectMode
 
 
 # ToDo :=
@@ -29,44 +29,39 @@ from modes import TrackMode, NoteMode
 class Sequencer(object):
     def __init__(
         self,
-        track_mode,
-        output_channel=0,
+        config,
         output_queue=None,
-        nof_tracks=8,
-        nof_steps=16,
-        track_select_map=None,
-        note_input_map=None,
-        note_output_map=None,
-        note_mode=NoteMode.toggle,
-        led_config=None,
         led_queue=None,
     ):
-        self.track_mode = track_mode
-        self.output_channel = output_channel
+        self.config = config
+        self.track_mode = config["track_mode"]
+        self.output_channel = config["output_channel"]
+        self.nof_tracks = config["nof_tracks"]
+        self.nof_steps = config["nof_steps"]
+        self.track_select_map = config.get("track_select_map", [])
+        self.track_select_mode = config["track_select_mode"]
+        self.note_input_map = config["note_input_map"]
+        self.note_output_map = config["note_output_map"]
+
         self.output_queue = output_queue
-        self.nof_tracks = nof_tracks
-        self.nof_steps = nof_steps
-        self.track_select_map = track_select_map
-        self.note_input_map = note_input_map
-        self.note_output_map = note_output_map
-        self.note_mode = note_mode
-        self.led_config = led_config
-        self.led_queue = led_queue
 
         self._current_beat = 0
-        self._setup_tracks()
+        self._setup_tracks(led_queue)
 
         if (
             self.track_mode != TrackMode.all_tracks and
-            track_select_map is None and
-            self.nof_tracks > len(self.note_input_map)
+            (
+                self.track_select_map is None or
+                len(self.track_select_map) == 0
+            ) and
+            (self.nof_tracks * self.nof_steps) > len(self.note_input_map)
         ):
             raise ValueError(
                 "You must choose track selection values to work with multiple"
                 f" tracks in {self.track_mode} mode!"
             )
 
-    def _setup_tracks(self):
+    def _setup_tracks(self, led_queue):
         self.tracks = []
         for track_id in range(self.nof_tracks):
             if self.track_mode == TrackMode.all_tracks:
@@ -75,20 +70,23 @@ class Sequencer(object):
             else:
                 start = 0
                 end = self.nof_steps
+
+            if self.track_select_mode == TrackMode.all_tracks:
+                select = True
+            elif track_id < self.config["nof_displayed_tracks"]:
+                select = True
+            else:
+                select = False
+
             # ToDo := notes map
             track = Track(
                 track_id=track_id,
-                track_mode=self.track_mode,
-                note_mode=self.note_mode,
-                nof_steps=self.nof_steps,
+                config=self.config,
                 note_input_map=self.note_input_map[start:end],
-                led_mode=self.led_config.led_mode,
-                led_output_map=self.led_config.led_map_out[start:end],
-                led_channel=self.led_config.led_channel,
-                led_queue=self.led_queue
+                led_queue=led_queue,
+                select=select,
             )
             self.tracks.append(track)
-        self.tracks[0].select = True
 
     def _get_midimsgs_from_tracks(self):
         msgs = []
@@ -105,33 +103,80 @@ class Sequencer(object):
             msgs.append(track_msg.bytes())
         return msgs
 
-    def _selected_track(self):
-        return [tr for tr in self.tracks if tr.select][0]
-
     def _track_id_from_note_map(self, note):
         track_id = self.note_input_map.index(note)
         track_id = math.floor(track_id / self.nof_steps)
         return track_id
 
-    def _select_track(self, track_id):
-        unselect = [id for id in range(len(self.tracks)) if id != track_id]
+    def _is_select_up(self, note):
+        return note == self.track_select_map[0]
+
+    def _is_select_down(self, note):
+        return note == self.track_select_map[1]
+
+    def _selected_tracks(self):
+        return [tr for tr in self.tracks if tr.select]
+
+    def _select_single_track(self, track_id):
+        self._select_tracks([track_id])
+
+    def _select_tracks(self, track_ids):
+        unselect = [
+            id for id in range(len(self.tracks)) if id not in track_ids
+        ]
         for idx in unselect:
             self.tracks[idx].select = False
 
-        self.tracks[track_id].select = True
+        for idx in track_ids:
+            self.tracks[idx].select = True
+
+    def _toggle_select_track(self, note):
+        if self.track_select_mode == TrackSelectMode.select:
+            # direct track selection through button
+            track_id = self.track_select_map.index(note)
+            self._select_single_track(track_id)
+        else:
+            # up/down arrows
+            dir = None
+            selected = self._selected_tracks()
+            if (
+                self._is_select_up(note) and
+                selected[0].track_id > self.tracks[0].track_id
+            ):
+                dir = -1
+            elif (
+                self._is_select_down(note) and
+                selected[-1].track_id < self.tracks[-1].track_id
+            ):
+                dir = 1
+
+            if dir is not None:
+                ids = [tr.track_id + dir for tr in selected]
+                self._select_tracks(ids)
 
     # Process track events
     def process(self, message):
-        if self.track_mode == TrackMode.select_tracks:
-            if message.note in self.note_input_map:
-                self._selected_track()(message)
-            elif message.note in self.track_select_map:
-                target_track_id = self.track_select_map.index(message.note)
-                self._select_track(target_track_id)
-        elif self.track_mode == TrackMode.all_tracks:
-            if message.note in self.note_input_map:
-                target_track_id = self._track_id_from_note_map(message.note)
-                self.tracks[target_track_id](message)
+        is_note_message = False
+        if message.type in ["note_on", "note_off"]:
+            note = message.note
+            is_note_message = True
+        elif message.type in ["control_change"]:
+            note = message.control
+
+        if note in self.track_select_map:
+            if self.track_mode == TrackMode.select_tracks:
+                self._toggle_select_track(note)
+        elif note in self.note_input_map:
+            target_track_id = self._track_id_from_note_map(note)
+            if not is_note_message:
+                type_ = "note_on" if note > 0 else "note_off"
+                message = mido.Message(
+                    type=type_,
+                    note=note,
+                    velocity=message.value
+                )
+
+            self.tracks[target_track_id](message)
 
     # Step the sequencer
     def tick(self):

@@ -62,7 +62,7 @@ def channel_and_note_mode(waiter):
 
 def multi_color_check(waiter):
     flush_controller(waiter.midiout)
-    led_colors = LedColors.default
+    led_color_mode = LedColors.default
     print("Velocity controlled colors. Press any key on the controller")
     query_pad = waiter.wait_for_key()
     query_pad.velocity = 64
@@ -71,9 +71,9 @@ def multi_color_check(waiter):
         query_pad.velocity = (query_pad.velocity + 50) % 127
         waiter.midiout.send_message(query_pad.bytes())
         if query_yn("Has it changed its color?"):
-            led_colors = LedColors.velocity
+            led_color_mode = LedColors.velocity
 
-    return led_colors
+    return led_color_mode
 
 
 def flush_controller(midiout):
@@ -82,7 +82,13 @@ def flush_controller(midiout):
         midiout.send_message(message.bytes())
 
 
-def display_track(midiout, notes, nof_steps, led_colors):
+def generate_track_velocities(nof_tracks):
+    start_incr = 127 // nof_tracks
+    velocities = list(range(start_incr, 127, start_incr))
+    return velocities
+
+
+def display_track(midiout, notes, nof_steps, led_color_mode):
     # light off
     for note in notes:
         if note > 127:
@@ -92,9 +98,8 @@ def display_track(midiout, notes, nof_steps, led_colors):
 
     nof_tracks = len(notes) // nof_steps
     velocities = [127] * nof_tracks
-    if led_colors == LedColors.velocity:
-        start_incr = 127 // nof_tracks
-        velocities = list(range(start_incr, 127, start_incr))
+    if led_color_mode == LedColors.velocity:
+        velocities = generate_track_velocities(nof_tracks)
 
     for id, note in enumerate(notes):
         message = mido.Message(
@@ -201,10 +206,10 @@ def setup_controller(midiin, midiout, config):
     else:
         i_channel, o_channel, note_mode = [config.get(key) for key in io_keys]
 
-    if config.get("led_colors", None) is None:
-        led_colors = multi_color_check(guesser.waiter)
+    if config.get("led_color_mode", None) is None:
+        led_color_mode = multi_color_check(guesser.waiter)
     else:
-        led_colors = LedColors(config.get("led_colors"))
+        led_color_mode = LedColors(config.get("led_color_mode"))
 
     flush_controller(midiout)
     track_select_pads = None
@@ -230,7 +235,7 @@ def setup_controller(midiin, midiout, config):
         led_channel=o_channel,
         note_input_map=note_input_map,
         track_select_map=track_select_pads,
-        led_colors=led_colors,
+        led_color_mode=led_color_mode,
     )
     return ret
 
@@ -274,8 +279,13 @@ def main(overwrite=False):
             if key.startswith("led"):
                 led_config[key] = config[key]
 
+        if config["led_color_mode"] == LedColors.velocity:
+            velocities = generate_track_velocities(config["nof_tracks"])
+            led_config["led_colors"] = velocities
+
         for key in led_config.keys():
-            del config[key]
+            if key in config:
+                del config[key]
 
         config["led_config"] = led_config
 
@@ -286,7 +296,7 @@ def main(overwrite=False):
             midiout,
             config["note_input_map"],
             config["nof_steps"],
-            LedColors(config["led_colors"]),
+            LedColors(config["led_color_mode"]),
         )
         if query_yn("Did the track correctly lit?"):
             print(

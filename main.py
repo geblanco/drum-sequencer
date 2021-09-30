@@ -43,7 +43,6 @@ def setup_clock(clock_source, controller_input, clock_port):
 
 
 def start_controller(controller_input, programmers, portname):
-    controller_name = portname.split(":")[0].lower().replace(" ", "_")
     controller = programmers.get(portname, None)
     if controller is not None:
         data = bytearray.fromhex(controller.start)
@@ -54,7 +53,6 @@ def start_controller(controller_input, programmers, portname):
 
 
 def finish_controller(controller_input, programmers, portname):
-    controller_name = portname.split(":")[0].lower().replace(" ", "_")
     controller = programmers.get(portname, None)
     if controller is not None:
         data = bytearray.fromhex(controller.finish)
@@ -96,16 +94,8 @@ def create_classes(
         )
     )
     sequencer = Sequencer(
-        track_mode=config.track_mode,
-        output_channel=config.output_channel,
+        config=config,
         output_queue=output_queue,
-        nof_tracks=config.nof_tracks,
-        nof_steps=config.nof_steps,
-        track_select_map=config.get("track_select_map", None),
-        note_input_map=config.note_input_map,
-        note_output_map=config.note_output_map,
-        note_mode=config.note_mode,
-        led_config=config.led_config,
         led_queue=led_queue
     )
 
