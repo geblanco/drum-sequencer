@@ -35,7 +35,7 @@ class Track(object):
         self.led_color_mode = led_config.get(
             "led_color_mode", LedColors.default
         )
-        self.led_output_map = led_config["led_output_map"]
+        self.led_output_map = led_config.get("led_output_map", note_input_map)
         self.led_channel = led_config.get("led_channel", 0)
         self.track_velocity = 127
         if (
@@ -55,17 +55,13 @@ class Track(object):
         # light off leds
         self.propagate()
 
-    def __call__(self, message):
-        # ToDo :=
-        # - get step, change state
-        # - propagate state
-        target_step = self.note_input_map.index(message.note)
+    def __call__(self, step, value):
         if self.note_mode == NoteMode.toggle:
-            self.state[target_step] = 127 - self.state[target_step]
+            self.state[step] = 127 - self.state[step]
         else:
-            self.state[target_step] = message.velocity
+            self.state[step] = value
 
-        self.propagate(target_step)
+        self.propagate(step)
 
     @property
     def select(self):
@@ -119,7 +115,13 @@ class Track(object):
 
     def propagate(self, target_step=None):
         # Light Modes: see class
-        if self.track_mode != TrackMode.select_tracks or self.select:
+        if (
+            len(self.led_output_map) > 0 and
+            (
+                self.track_mode != TrackMode.select_tracks or
+                self.select
+            )
+        ):
             messages = []
             if self.led_mode == LedMode.handled:
                 if target_step is None:
@@ -141,4 +143,5 @@ class Track(object):
                 messages = self.step_ids_to_led_messages(step_ids)
 
             if len(messages):
-                self.led_queue.put(messages)
+                # print("Sending led message", messages)
+                self.led_queue(messages)

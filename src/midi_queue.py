@@ -4,7 +4,7 @@ import logging
 import threading
 
 from modes import NoteMode
-from filters import MidiFilter, CC, NoteToggle, ChannelFilter
+from filters import CutThrough, CCToggle, NoteToggle, ChannelFilter, Composite
 from rtmidi.midiconstants import (CONTROLLER_CHANGE, NOTE_ON, NOTE_OFF)
 
 
@@ -75,6 +75,8 @@ class InputQueue(MidiQueue):
         )
         super(InputQueue, self).__init__(note_mode=note_mode, channel=channel)
         self._handlers = []
+        # filter pipeline:
+        # - channel filter - note filter if note event, cc filter if cc event
         self._setup_filters()
 
     def _setup_filters(self):
@@ -82,12 +84,12 @@ class InputQueue(MidiQueue):
         if self.note_mode == NoteMode.default:
             # no processing, just pass cc and note_on, note_off, as is
             event_types = [CONTROLLER_CHANGE, NOTE_ON, NOTE_OFF]
-            self.filters.append(MidiFilter(event_types=event_types))
+            self.filters.append(CutThrough(event_types=event_types))
         elif self.note_mode == NoteMode.toggle:
             # allow cc as is, only note_on events with velocity > 0
             # many controllers pass NOTE_ON with volicity and same with
             # veolicty == 0 when released, avoid duplication
-            self.filters.extend([CC(), NoteToggle()])
+            self.filters.append(Composite(CCToggle(), NoteToggle()))
 
     def filter(self, message):
         return any([filt.match(message) for filt in self.filters])
@@ -97,16 +99,19 @@ class InputQueue(MidiQueue):
         self._handlers.append(fn)
 
     def process(self, message):
-        if self.note_mode == NoteMode.toggle:
-            # only process messages in toggle mode
+        if message is not None:
+            midomsg = None
             for filt in self.filters:
-                # only the matching filters will process, the rest will just
-                # passthrough
                 message = filt.process(message)
+                if message is None:
+                    break
 
-        midomsg = mido.parse(message)
-        for hand in self._handlers:
-            hand(midomsg)
+            if message is not None:
+                midomsg = mido.parse(message)
+
+            if midomsg is not None:
+                for hand in self._handlers:
+                    hand(midomsg)
 
 
 class OutputQueue(MidiQueue):

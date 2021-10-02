@@ -48,12 +48,12 @@ class Clock(object):
 
             if len(self._samples) > 24:
                 self._samples.popleft()
+                for clk_hand in self._clock_handlers:
+                    clk_hand.tick()
 
             if len(self._samples) >= 2:
                 self.bpm = 2.5 / (sum(self._samples) / len(self._samples))
                 self.sync = True
-                for clk_hand in self._clock_handlers:
-                    clk_hand.tick()
 
         elif message[0] in (SONG_CONTINUE, SONG_START):
             self.running = True

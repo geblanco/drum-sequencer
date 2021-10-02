@@ -57,7 +57,9 @@ def open_controller(ctrl_inport=None, ctrl_outport=None):
     if ctrl_outport is not None and ctrl_outport.strip() == "":
         ctrl_outport = None
 
+    print(f"\nOpening controller input...\n{'=' * 15}")
     ctrl["input_port"], ctrl["input_name"] = open_midiinput(ctrl_inport)
+    print(f"\nOpening controller output...\n{'=' * 15}")
     ctrl["output_port"], ctrl["output_name"] = open_midioutput(ctrl_outport)
     return ctrl
 

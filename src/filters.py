@@ -27,17 +27,31 @@ class MidiFilter(object):
         raise NotImplementedError("Abstract method 'process()'.")
 
     def match(self, msg):
-        return msg[0] & 0xF0 in self.event_types
+        return msg is not None and msg[0] & 0xF0 in self.event_types
 
 
-class PassThrough(MidiFilter):
-
-    def process(self, messages):
+class CutThrough(MidiFilter):
+    def _process(self, messages):
         return messages
 
+    def process(self, messages):
+        ret = None
+        if messages is not None:
+            if isinstance(messages, list) and len(messages) == 3:
+                if self.match(messages):
+                    ret = self._process(messages)
+            elif messages is not None:
+                messages = [
+                    self._process(msg) for msg in messages
+                    if self.match(msg)
+                ]
+                if len(messages) > 0:
+                    ret = messages
 
-class NoteToggle(MidiFilter):
-    event_types = (NOTE_ON,)
+        return ret
+
+
+class Toggle(CutThrough):
 
     def match(self, msg):
         if super().match(msg):
@@ -55,22 +69,23 @@ class NoteToggle(MidiFilter):
                 message[-1] = vel
                 return message
 
-        return message
 
-    def process(self, messages):
-        if not isinstance(messages, list):
-            return self._process(messages)
-
-        for evt in messages:
-            return self._process(evt)
-
-
-class CC(PassThrough):
+class CC(CutThrough):
 
     event_types = (CONTROLLER_CHANGE,)
 
 
-class ChannelFilter(PassThrough):
+class NoteToggle(Toggle):
+
+    event_types = (NOTE_ON,)
+
+
+class CCToggle(Toggle):
+
+    event_types = (CONTROLLER_CHANGE,)
+
+
+class ChannelFilter(CutThrough):
 
     event_types = (NOTE_ON, NOTE_OFF, CONTROLLER_CHANGE)
 
@@ -79,3 +94,21 @@ class ChannelFilter(PassThrough):
 
     def match(self, msg):
         return super().match(msg) and msg[0] & 0x0F in self.channels
+
+
+class Composite(object):
+
+    def __init__(self, *args):
+        self.filters = [ar for ar in args]
+
+    def match(self, message):
+        return any([filt.match(message) for filt in self.filters])
+
+    def process(self, message):
+        ret = None
+        target = [filt for filt in self.filters if filt.match(message)]
+        if len(target):
+            target = target[0]
+            ret = target.process(message)
+
+        return ret

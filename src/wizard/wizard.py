@@ -237,7 +237,7 @@ def setup_controller(midiin, midiout, config):
 
 def setup_velocities(config):
     ret = {}
-    if config["led_color_mode"] == LedColors.velocity:
+    if config["led_config"]["led_color_mode"] == LedColors.velocity:
         velocities = generate_track_velocities(config["nof_tracks"])
         ret["led_colors"] = velocities
 
@@ -288,9 +288,10 @@ def main(overwrite=False):
 
         flush_controller(midiout)
         config.update(**setup_controller(midiin, midiout, config))
-        config["led_config"].update(**setup_velocities(config["led_config"]))
+        config["led_config"].update(**setup_velocities(config))
         config = serialize_dict(config)
 
+        conf_path.parent.mkdir(parents=True, exist_ok=True)
         with open(conf_path, "w") as fout:
             fout.write(yaml.dump(config))
 
