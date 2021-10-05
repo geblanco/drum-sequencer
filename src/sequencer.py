@@ -98,17 +98,21 @@ class Sequencer(object):
 
     def _get_midimsgs_from_tracks(self):
         msgs = []
-        tracks = [tr for tr in self.tracks if tr.solo or not tr.mute]
-        steps = [tr.get_state()[self._current_beat] for tr in tracks]
-        steps = [st for st in steps if st > 0]
-        for track_id, step_val in enumerate(steps):
-            track_msg = mido.Message(
-                type="note_on",
-                note=self.note_output_map[track_id],
-                velocity=step_val,
-                channel=self.output_channel
-            )
-            msgs.append(track_msg.bytes())
+        tracks = [tr for tr in self.tracks if tr.solo]
+        if len(tracks) == 0:
+            tracks = [tr for tr in self.tracks if not tr.mute]
+
+        for tr in tracks:
+            step_val = tr.get_state()[self._current_beat]
+            if step_val > 0:
+                track_id = tr.track_id
+                track_msg = mido.Message(
+                    type="note_on",
+                    note=self.note_output_map[track_id],
+                    velocity=step_val,
+                    channel=self.output_channel
+                )
+                msgs.append(track_msg.bytes())
         return msgs
 
     def _track_id_from_note_map(self, note):
@@ -169,6 +173,12 @@ class Sequencer(object):
                     select_ids.append(target_track_id)
 
                 self._select_tracks(select_ids)
+
+    def get_track_state(self, track_id):
+        return self.tracks[track_id].get_state()
+
+    def get_all_track_states(self, track_id):
+        return [tr.get_state() for tr in self.tracks]
 
     # Process track events
     def process(self, message):

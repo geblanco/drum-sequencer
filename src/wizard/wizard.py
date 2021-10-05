@@ -14,14 +14,14 @@ from controller import (  # noqa: E402
     open_controller,
     search_controller_config,
 )
-from guesser import Guesser  # noqa: E402
+from .guesser import Guesser  # noqa: E402
 from modes import (  # noqa: E402
     TrackMode,
     TrackSelectMode,
     NoteMode,
     LedColors,
 )
-from prompts import (  # noqa: E402
+from .prompts import (  # noqa: E402
     query_num,
     query_choices,
     query_yn,
@@ -240,6 +240,11 @@ def setup_velocities(config):
     if config["led_config"]["led_color_mode"] == LedColors.velocity:
         velocities = generate_track_velocities(config["nof_tracks"])
         ret["led_colors"] = velocities
+
+    clock_text = (
+        "Do you want the clock to be displayed over the Sequencer steps?"
+    )
+    ret["led_clock"] = query_yn(clock_text)
 
     return ret
 

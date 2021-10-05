@@ -3,11 +3,11 @@ import time
 import argparse
 
 from pathlib import Path
-from omegaconf import OmegaConf
 from rtmidi.midiutil import open_midiinput, open_midioutput
 
+from clock import Clock, LedClock
+from wizard import query_yn
 from sequencer import Sequencer
-from clock.clock import Clock
 from midi_queue import InputQueue, OutputQueue
 from controller import (
     start_controller,
@@ -36,15 +36,23 @@ def parse_args():
     return parser.parse_args()
 
 
-def create_clock(controller_input, clock_source, clock_port):
+def create_clock(config, controller_input, clock_source, clock_port):
     port = None
     if clock_source == ClockSource.controller:
         port = controller_input
     elif clock_source == ClockSource.external:
         port = open_midiinput(clock_port)
 
-    print(f"Using clock source: {clock_source}")
-    clock = Clock(clock_source=clock_source, midiin=port)
+    print(
+        f"Using clock source: {clock_source}, "
+        "signature: 1/{config['nof_steps']}"
+    )
+    clock = Clock(
+        clock_source=clock_source,
+        midiin=port,
+        bpm=config.get("bpm", 120),
+        signature=config["nof_steps"]
+    )
 
     return clock
 
@@ -72,14 +80,16 @@ def create_queues(config, controller_output, sequencer_output):
     )
     led_queue = OutputQueue(
         midiout=controller_output,
-        channel=config["led_config"].get("led_channel", config["input_channel"])
+        channel=config["led_config"].get(
+            "led_channel", config["input_channel"]
+        )
     )
     return (input_queue, output_queue, led_queue)
 
 
 def connect_components(clock, input_queue, controller_input, sequencer):
     input_queue.add_handler(sequencer.process)
-    # clock.add_clock_handler(sequencer)
+    clock.add_clock_handler(sequencer)
 
     if clock.clock_source == ClockSource.controller:
         controller_input.set_callback(clock)
@@ -109,7 +119,9 @@ def load_config(config_path):
         config["led_config"]["led_map_out"] = config["note_input_map"]
 
     if config.get("note_output_map", None) is None:
-        config["note_output_map"] = [35 + i for i in range(config["nof_tracks"])]
+        config["note_output_map"] = [
+            35 + i for i in range(config["nof_tracks"])
+        ]
 
     return config
 
@@ -136,7 +148,7 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     start_controller(ctrl, load_programmers())
     flush_controller(ctrl)
 
-    clock = create_clock(ctrl["input_port"], clock_source, clock_port)
+    clock = create_clock(config, ctrl["input_port"], clock_source, clock_port)
     input_queue, output_queue, led_queue = create_queues(
         config=config,
         controller_output=ctrl["output_port"],
@@ -144,28 +156,35 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     )
     sequencer = Sequencer(config, output_queue, led_queue)
     connect_components(clock, input_queue, ctrl["input_port"], sequencer)
-    # start necessary threads: InputQueue, OutputQueue, clock (if internal)
-    try:
-        print("Starting threads...")
-        input_queue.start()
-        led_queue.start()
-        output_queue.start()
-        clock.start()
-        print("Ctrl-c to stop the process")
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        print("Stopping threads...")
-        input_queue.stop()
-        led_queue.stop()
-        output_queue.stop()
-        clock.stop()
+    if config["led_config"]["led_clock"]:
+        clock.add_clock_handler(LedClock(config, sequencer, led_queue))
 
-        finish_controller(ctrl, load_programmers())
-        close_controller(ctrl)
-        sequencer_output.close_port()
+    # start necessary threads: InputQueue, OutputQueue, clock (if internal)
+    print("Starting threads...")
+    input_queue.start()
+    led_queue.start()
+    output_queue.start()
+    clock.start()
+    print("Ctrl-c to stop the process")
+    while True:
+        try:
+            time.sleep(1)
+        except KeyboardInterrupt:
+            clock.stop()
+            if query_yn("Exit?"):
+                break
+            else:
+                clock.start()
+
+    print("Stopping threads...")
+    input_queue.stop()
+    led_queue.stop()
+    output_queue.stop()
+    clock.stop()
+
+    finish_controller(ctrl, load_programmers())
+    close_controller(ctrl)
+    sequencer_output.close_port()
 
 
 if __name__ == "__main__":

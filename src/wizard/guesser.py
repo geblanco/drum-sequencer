@@ -2,7 +2,7 @@ import mido
 import time
 
 from modes import NoteMode
-from prompts import query_num
+from .prompts import query_num
 
 
 class Guesser:

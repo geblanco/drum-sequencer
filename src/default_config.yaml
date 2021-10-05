@@ -19,6 +19,7 @@ led_config:
     led_mode: "handled"
     led_map_out: null
     led_channel: 0
+    led_clock: true
 
 # notes I/O
 note_input_map:

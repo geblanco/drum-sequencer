@@ -31,9 +31,6 @@ class InternalClock(threading.Thread):
 
         self._callback = lambda x: ()
 
-        # Counts elapsed ticks when sequence is running
-        self._tickcnt = None
-
         # run-time options
         self._tick = None
         self.ppqn = ppqn
@@ -46,7 +43,7 @@ class InternalClock(threading.Thread):
     @bpm.setter
     def bpm(self, value):
         self._bpm = value
-        self._tick = 60. / value / self.ppqn
+        self._tick = 60. / (value * self.ppqn)
         # log.debug("Changed BPM => %s, tick interval %.2f ms.",
         #           self._bpm, self._tick * 1000)
 
@@ -64,20 +61,17 @@ class InternalClock(threading.Thread):
         self.join()
 
     def run(self):
-        self._tickcnt = 0
-
         self._callback([SONG_START])
         while not self._stopped.is_set():
             curtime = time.time()
 
             self._callback([TIMING_CLOCK])
+
             # loop speed adjustment
             elapsed = time.time() - curtime
 
             if elapsed < self._tick:
                 time.sleep(self._tick - elapsed)
-
-            self._tickcnt += 1
 
         # log.debug("Midi output mainloop exited.")
         self._finished.set()
