@@ -111,6 +111,7 @@ class Sequencer(object):
         if note in self.note_input_map:
             target_track_id = self.display.get_target_track(note)
             step_id = self._step_id_from_note_map(note)
+            print("procces", target_track_id, step_id)
             self.tracks[target_track_id](step_id, value)
 
     # Process track events

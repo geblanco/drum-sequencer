@@ -146,12 +146,11 @@ class DisplayQueue(MidiQueue):
             self.nof_displayed_tracks > 1
         )
         if multitrack:
-            start = track_id * self.nof_steps
-            end = (track_id * self.nof_steps + self.nof_steps)
+            start = (track_id - self.display_index) * self.nof_steps
+            end = ((track_id - self.display_index) * self.nof_steps + self.nof_steps)
         else:
             start = 0
             end = self.nof_steps
-
         end_note = self.led_output_map[start:end][step_id]
         msg = mido.Message(
             type="note_on" if step_value > 0 else "note_off",
@@ -164,6 +163,7 @@ class DisplayQueue(MidiQueue):
     def get_target_track(self, note):
         track_id = self.note_input_map.index(note)
         track_id = math.floor(track_id / self.nof_steps)
+        print("Target track", track_id + self.display_index, track_id, self.display_index)
         return track_id + self.display_index
 
     def set_mode(self, mode):
@@ -187,7 +187,7 @@ class DisplayQueue(MidiQueue):
                 track_id = message[1]
                 if (
                     self.display_index <= track_id and
-                    track_id < self.nof_displayed_tracks
+                    track_id < self.display_index + self.nof_displayed_tracks
                 ):
                     ret = True
         return ret

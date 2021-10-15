@@ -34,7 +34,7 @@ class TrackController(object):
             display_index += dir
             display_index = min(
                 max(display_index, 0),
-                self.nof_tracks // self.nof_displayed_tracks
+                self.nof_tracks - self.nof_displayed_tracks
             )
             self.display.display_index = display_index
             if prev_display != display_index:
