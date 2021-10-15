@@ -163,7 +163,7 @@ class Sequencer(object):
             self._display_index += dir
             self._display_index = min(
                 max(self._display_index, 0),
-                self.nof_tracks // self.config["nof_displayed_tracks"]
+                self.nof_tracks - self.config["nof_displayed_tracks"]
             )
             if prev_display != self._display_index:
                 for track_id in range(self.config["nof_displayed_tracks"]):
