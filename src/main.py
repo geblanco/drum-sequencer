@@ -6,9 +6,10 @@ from pathlib import Path
 from rtmidi.midiutil import open_midiinput, open_midioutput
 
 from clock import Clock, LedClock
+from router import Router
 from wizard import query_yn
 from sequencer import Sequencer
-from midi_queue import InputQueue, OutputQueue
+from midi_queue import InputQueue, OutputQueue, DisplayQueue
 from controller import (
     start_controller,
     finish_controller,
@@ -84,11 +85,19 @@ def create_queues(config, controller_output, sequencer_output):
             "led_channel", config["input_channel"]
         )
     )
-    return (input_queue, output_queue, led_queue)
+    display_queue = DisplayQueue(
+        config=config,
+        led_queue=led_queue,
+    )
+    return (input_queue, output_queue, led_queue, display_queue)
 
 
-def connect_components(clock, input_queue, controller_input, sequencer):
-    input_queue.add_handler(sequencer.process)
+def connect_components(
+    clock, input_queue, controller_input, sequencer, router
+):
+    router.set_sequencer_handler(sequencer.process_step_event)
+    router.set_track_handler(sequencer.process_track_event)
+    input_queue.add_handler(router.process)
     clock.add_clock_handler(sequencer)
 
     if clock.clock_source == ClockSource.controller:
@@ -149,20 +158,24 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     flush_controller(ctrl)
 
     clock = create_clock(config, ctrl["input_port"], clock_source, clock_port)
-    input_queue, output_queue, led_queue = create_queues(
+    input_queue, output_queue, led_queue, display_queue = create_queues(
         config=config,
         controller_output=ctrl["output_port"],
         sequencer_output=sequencer_output,
     )
-    sequencer = Sequencer(config, output_queue, led_queue)
-    connect_components(clock, input_queue, ctrl["input_port"], sequencer)
+    router = Router(config, display_queue)
+    sequencer = Sequencer(config, display_queue, output_queue)
+    connect_components(
+        clock, input_queue, ctrl["input_port"], sequencer, router
+    )
     if config["led_config"]["led_clock"]:
-        clock.add_clock_handler(LedClock(config, sequencer, led_queue))
+        clock.add_clock_handler(LedClock(config, sequencer, display_queue))
 
     # start necessary threads: InputQueue, OutputQueue, clock (if internal)
     print("Starting threads...")
     input_queue.start()
     led_queue.start()
+    display_queue.start()
     output_queue.start()
     clock.start()
     print("Ctrl-c to stop the process")
@@ -179,6 +192,7 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     print("Stopping threads...")
     input_queue.stop()
     led_queue.stop()
+    display_queue.stop()
     output_queue.stop()
     clock.stop()
 

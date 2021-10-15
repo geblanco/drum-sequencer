@@ -52,3 +52,24 @@ class ClockSource(Enum):
     controller = "controller"
     external = "external"
     internal = "internal"
+
+
+class InputMode(Enum):
+    """
+    Controller can be set to different modes:
+
+    sequencer:   The standard mode to sequence steps
+    one_shot:    Just like a maschine, trigger a sound for each pad.
+                 In the future, track select pads can be multipliers,
+                 to repeat each sound on a 1/2, 1/4, 1/8, 1/16 fashion
+    velocities:  Select velocity for each track. In the future a humanize
+                 button could be added
+    """
+    sequencer = 0
+    one_shot = 1
+    velocities = 2
+
+
+class DisplayMsgTypes(Enum):
+    clock = "clock"
+    track = "track"

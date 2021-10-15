@@ -1,6 +1,4 @@
-import mido
-
-from modes import NoteMode, LedMode, LedColors, TrackMode
+from modes import NoteMode, LedMode, LedColors, TrackMode, DisplayMsgTypes
 
 
 class Track(object):
@@ -9,8 +7,7 @@ class Track(object):
         self,
         track_id,
         config,
-        note_input_map,
-        led_queue,
+        display_queue,
         select=False,
         mute=False,
         solo=False,
@@ -20,8 +17,6 @@ class Track(object):
         self.led_config = led_config
 
         self.track_id = track_id
-        self.note_input_map = note_input_map
-        self.led_queue = led_queue
 
         self._select = select
         self._mute = mute
@@ -31,13 +26,12 @@ class Track(object):
         self.note_mode = config.get("note_mode", NoteMode.toggle)
         self.nof_steps = config.get("nof_steps", 16)
 
+        self.display_queue = display_queue
         self.led_mode = led_config.get("led_mode", LedMode.handled)
         self.led_color_mode = led_config.get(
             "led_color_mode", LedColors.default
         )
-        self.led_output_map = led_config.get("led_output_map", note_input_map)
-        self.led_channel = led_config.get("led_channel", 0)
-        self.track_velocity = 127
+        self.track_velocity = config.get("note_velocity", 127)
         if (
             "led_colors" not in led_config and
             self.led_color_mode == LedColors.velocity
@@ -103,45 +97,34 @@ class Track(object):
             if self.led_color_mode == LedColors.velocity and value > 0:
                 value = self.track_velocity
 
-            msg = mido.Message(
-                type="note_on" if value > 0 else "note_off",
-                channel=self.led_channel,
-                note=self.led_output_map[id],
-                velocity=value,
-            )
-            messages.append(msg.bytes())
+            messages.append([DisplayMsgTypes.track, self.track_id, id, value])
 
         return messages
 
     def propagate(self, target_step=None):
         # Light Modes: see class
-        if (
-            len(self.led_output_map) > 0 and
-            (
-                self.track_mode != TrackMode.select_tracks or
-                self.select
-            )
-        ):
+        if self.track_mode != TrackMode.select_tracks or self.select:
             messages = []
-            if self.led_mode == LedMode.handled:
-                if target_step is None:
-                    step_ids = list(range(len(self.state)))
-                else:
-                    step_ids = [target_step]
-
-                messages = self.step_ids_to_led_messages(step_ids)
-            elif self.led_mode == LedMode.partial_handled:
-                # only note-offs
-                if target_step is None:
-                    step_ids = [st for st in self.state if st == 0]
-                else:
-                    step_ids = (
-                        [self.state[target_step]]
-                        if self.state[target_step] == 0
-                        else []
+            step_ids = []
+            if target_step is not None:
+                if (
+                    self.led_mode == LedMode.handled or
+                    (
+                        self.led_mode == LedMode.partial_handled and
+                        self.state[target_step] == 0
                     )
-                messages = self.step_ids_to_led_messages(step_ids)
+                ):
+                    step_ids.append(target_step)
+            else:
+                if self.led_mode == LedMode.handled:
+                    step_ids = list(range(len(self.state)))
+                elif self.led_mode == LedMode.partial_handled:
+                    step_ids = [
+                        id for id, val in enumerate(self.state) if val == 0
+                    ]
+
+            messages = self.step_ids_to_led_messages(step_ids)
 
             if len(messages):
                 # print("Sending led message", messages)
-                self.led_queue(messages)
+                self.display_queue(messages)
