@@ -30,7 +30,11 @@ class MidiQueue(threading.Thread):
         """
         # self._wallclock += deltatime
         # log.debug("IN: @%0.6f %r", self._wallclock, message)
-        if isinstance(message, (tuple, list)) and len(message) == 2:
+        if (
+            isinstance(message, (tuple, list)) and
+            len(message) == 2 and
+            isinstance(message[1], (int, float))
+        ):
             # skip the timestamp
             message, _ = message
 
@@ -117,14 +121,14 @@ class InputQueue(MidiQueue):
 
 class DisplayQueue(MidiQueue):
     def __init__(self, config, led_queue):
-        super(OutputQueue, self).__init__()
+        super(DisplayQueue, self).__init__()
         self.track_mode = config["track_mode"]
         self.nof_steps = config["nof_steps"]
         self.nof_displayed_tracks = config["nof_displayed_tracks"]
         self.note_input_map = config["note_input_map"]
 
         led_config = config["led_config"]
-        self.led_channel = config.get("led_channel", 0)
+        self.led_channel = led_config.get("led_channel", 0)
         self.led_output_map = led_config.get(
             "led_output_map", config["note_input_map"]
         )
@@ -165,7 +169,7 @@ class DisplayQueue(MidiQueue):
     def set_mode(self, mode):
         self.input_mode = mode
 
-    def filter(self, message):
+    def filter_single(self, message):
         ret = False
         if len(message):
             msg_type = message[0]
@@ -190,8 +194,18 @@ class DisplayQueue(MidiQueue):
 
     def process(self, messages):
         if len(messages):
+            to_process = []
+            multimsg = all([isinstance(ms, (tuple, list)) for ms in messages])
+            if multimsg:
+                for msg in messages:
+                    if self.filter_single(msg):
+                        to_process.append(msg)
+            else:
+                if self.filter_single(messages):
+                    to_process.append(messages)
+
             to_queue = []
-            for msg in messages:
+            for msg in to_process:
                 msg_type = msg[0]
                 if msg_type == DisplayMsgTypes.clock:
                     to_queue.append(msg[1])

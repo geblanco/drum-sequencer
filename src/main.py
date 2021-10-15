@@ -46,7 +46,7 @@ def create_clock(config, controller_input, clock_source, clock_port):
 
     print(
         f"Using clock source: {clock_source}, "
-        "signature: 1/{config['nof_steps']}"
+        f"signature: 1/{config['nof_steps']}"
     )
     clock = Clock(
         clock_source=clock_source,

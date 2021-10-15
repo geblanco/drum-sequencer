@@ -6,7 +6,6 @@ clock_source: "internal"
 
 # I/O
 input_channel: 0
-led_channel: 0
 output_channel: 0
 
 # Sequencer

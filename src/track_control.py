@@ -29,7 +29,7 @@ class TrackController(object):
         else:
             # up/down arrows
             dir = -1 if self._is_select_up(note) else 1
-            display_index = self.display_index
+            display_index = self.display.display_index
             prev_display = display_index
             display_index += dir
             display_index = min(

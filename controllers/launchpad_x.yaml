@@ -2,7 +2,7 @@ input_channel: 0
 led_config:
   led_channel: 0
   led_color_mode: true
-  led_clock: true
+  led_clock: false
   led_colors:
   - 15
   - 30
