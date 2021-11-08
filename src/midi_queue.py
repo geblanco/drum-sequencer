@@ -163,7 +163,6 @@ class DisplayQueue(MidiQueue):
     def get_target_track(self, note):
         track_id = self.note_input_map.index(note)
         track_id = math.floor(track_id / self.nof_steps)
-        print("Target track", track_id + self.display_index, track_id, self.display_index)
         return track_id + self.display_index
 
     def set_mode(self, mode):

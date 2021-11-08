@@ -111,8 +111,9 @@ class Sequencer(object):
         if note in self.note_input_map:
             target_track_id = self.display.get_target_track(note)
             step_id = self._step_id_from_note_map(note)
-            print("procces", target_track_id, step_id)
             self.tracks[target_track_id](step_id, value)
+            # for track in self.tracks:
+            #     print(track)
 
     # Process track events
     # - track events: select, mute, solo, track state
@@ -120,7 +121,8 @@ class Sequencer(object):
     def process_track_event(self, note, value):
         if note in self.track_select_map:
             selected_tracks = self.track_controller.get_selected_tracks(note)
-            self.select_tracks(selected_tracks)
+            if len(selected_tracks):
+                self.select_tracks(selected_tracks)
         elif note in self.track_controls_map:
             # ToDo := solo/mute for each track
             pass

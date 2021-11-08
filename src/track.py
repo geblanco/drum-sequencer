@@ -57,6 +57,14 @@ class Track(object):
 
         self.propagate(step)
 
+    def __repr__(self):
+        state = ', '.join(['-' if i == 0 else 'X' for i in self.state])
+        state = f"Track {self.track_id}: [{state}] - {self.select}"
+        return state
+
+    def __str__(self):
+        return self.__repr__()
+
     @property
     def select(self):
         return self._select
