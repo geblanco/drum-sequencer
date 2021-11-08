@@ -41,11 +41,11 @@ def create_clock(config, controller_input, clock_source, clock_port):
     if clock_source == ClockSource.controller:
         port = controller_input
     elif clock_source == ClockSource.external:
-        port = open_midiinput(clock_port)
+        port, _ = open_midiinput(clock_port, interactive=True)
 
     print(
         f"Using clock source: {clock_source}, "
-        "signature: 1/{config['nof_steps']}"
+        f"signature: 1/{config['nof_steps']}"
     )
     clock = Clock(
         clock_source=clock_source,
