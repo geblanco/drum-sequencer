@@ -5,27 +5,6 @@ from modes import TrackMode
 from track_control import TrackController
 
 
-# ToDo :=
-# - maps: track_select (in TrackMode.select_tracks) note in, note out
-#   track select map maps note to track
-#   - should be propagated
-#   note_in map are notes mapped to steps
-#   - input note, output led
-#   note_out map are notes mapped to tracks, each track emmits only on a note
-#   - track -> output note
-# - think about outputs
-# config contains:
-# - output_channel
-# - nof_tracks
-# - nof_steps
-# - note_input_map
-# - note_mode
-# - track_mode
-# - track_select_map
-# - track_select_mode
-# - nof_displayed_tracks
-# - led_channel
-# - led_colors
 class Sequencer(object):
     def __init__(
         self,
@@ -35,26 +14,27 @@ class Sequencer(object):
     ):
         self.config = config
         self.display = display_queue
-        self.track_mode = config["track_mode"]
-        self.output_channel = config["output_channel"]
-        self.nof_tracks = config["nof_tracks"]
-        self.nof_steps = config["nof_steps"]
-        self.track_select_map = config.get("track_select_map", [])
-        self.track_select_mode = config["track_select_mode"]
-        self.note_input_map = config["note_input_map"]
-        self.note_output_map = config["note_output_map"]
+        self.track_mode = self.config["track_mode"]
+        self.output_channel = self.config["output_channel"]
+        self.nof_tracks = self.config["nof_tracks"]
+        self.nof_steps = self.config["nof_steps"]
+        self.note_input_map = self.config["note_input_map"]
+        self.note_output_map = self.config["note_output_map"]
 
-        self.track_controller = TrackController(config, display_queue)
+        self.track_controller = TrackController(self.config, display_queue)
         self.output_queue = output_queue
 
+        track_select_map = self.config.get("track_select_map", [])
+        track_select_mode = self.config["track_select_mode"]
+
         self._current_beat = 0
-        self._setup_tracks(display_queue)
+        self._setup_tracks(display_queue, track_select_mode)
 
         if (
             self.track_mode != TrackMode.all_tracks and
             (
-                self.track_select_map is None or
-                len(self.track_select_map) == 0
+                track_select_map is None or
+                len(track_select_map) == 0
             ) and
             (self.nof_tracks * self.nof_steps) > len(self.note_input_map)
         ):
@@ -63,10 +43,10 @@ class Sequencer(object):
                 f" tracks in {self.track_mode} mode!"
             )
 
-    def _setup_tracks(self, display_queue):
+    def _setup_tracks(self, display_queue, track_select_mode):
         self.tracks = []
         for track_id in range(self.nof_tracks):
-            if self.track_select_mode == TrackMode.all_tracks:
+            if track_select_mode == TrackMode.all_tracks:
                 select = True
             elif track_id < self.config["nof_displayed_tracks"]:
                 select = True
@@ -78,6 +58,7 @@ class Sequencer(object):
                 track_id=track_id,
                 config=self.config,
                 display_queue=display_queue,
+                track_controller=self.track_controller,
                 select=select,
             )
             self.tracks.append(track)
@@ -109,23 +90,23 @@ class Sequencer(object):
     # Process step events
     def process_step_event(self, note, value):
         if note in self.note_input_map:
-            target_track_id = self.display.get_target_track(note)
+            target_track_id = self.track_controller.get_target_track(note)
             step_id = self._step_id_from_note_map(note)
             self.tracks[target_track_id](step_id, value)
-            # for track in self.tracks:
-            #     print(track)
 
     # Process track events
     # - track events: select, mute, solo, track state
-    # - sequencer events:
     def process_track_event(self, note, value):
-        if note in self.track_select_map:
+        if self.track_controller.is_track_select(note):
             selected_tracks = self.track_controller.get_selected_tracks(note)
             if len(selected_tracks):
                 self.select_tracks(selected_tracks)
-        elif note in self.track_controls_map:
+        elif self.track_controller.is_track_control(note):
             # ToDo := solo/mute for each track
-            pass
+            target = self.track_controller.get_control_target_track(note)
+            self.apply_track_controls(target)
+            for track in self.tracks:
+                print(track)
 
     def get_track_state(self, track_id):
         return self.tracks[track_id].get_state()
@@ -148,6 +129,13 @@ class Sequencer(object):
 
     def selected_tracks(self):
         return [tr for tr in self.tracks if tr.select]
+
+    def apply_track_controls(self, target):
+        for key, track_id in target.items():
+            if key == "solo":
+                self.tracks[track_id].solo = not self.tracks[track_id].solo
+            else:
+                self.tracks[track_id].mute = not self.tracks[track_id].mute
 
     # Step the sequencer
     def tick(self):

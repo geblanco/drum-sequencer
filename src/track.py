@@ -8,6 +8,7 @@ class Track(object):
         track_id,
         config,
         display_queue,
+        track_controller,
         select=False,
         mute=False,
         solo=False,
@@ -22,16 +23,19 @@ class Track(object):
         self._mute = mute
         self._solo = solo
 
-        self.track_mode = config.get("track_mode", TrackMode.select_tracks)
-        self.note_mode = config.get("note_mode", NoteMode.toggle)
-        self.nof_steps = config.get("nof_steps", 16)
+        self.track_mode = self.config.get(
+            "track_mode", TrackMode.select_tracks
+        )
+        self.note_mode = self.config.get("note_mode", NoteMode.toggle)
+        self.nof_steps = self.config.get("nof_steps", 16)
 
         self.display_queue = display_queue
-        self.led_mode = led_config.get("led_mode", LedMode.handled)
-        self.led_color_mode = led_config.get(
+        self.controller = track_controller
+        self.led_mode = self.led_config.get("led_mode", LedMode.handled)
+        self.led_color_mode = self.led_config.get(
             "led_color_mode", LedColors.default
         )
-        self.track_velocity = config.get("note_velocity", 127)
+        self.track_velocity = self.config.get("note_velocity", 127)
         if (
             "led_colors" not in led_config and
             self.led_color_mode == LedColors.velocity
@@ -59,7 +63,10 @@ class Track(object):
 
     def __repr__(self):
         state = ', '.join(['-' if i == 0 else 'X' for i in self.state])
-        state = f"Track {self.track_id}: [{state}] - {self.select}"
+        state = f"Track {self.track_id}: [{state}]"
+        state = f"{state} - [{'SEL' if self.select else 'X'}, "\
+            f"{'S' if self._solo else 'X'}, {'M' if self._mute else 'X'}]"
+
         return state
 
     def __str__(self):
@@ -74,6 +81,7 @@ class Track(object):
         self._select = value
         if self._select:
             self.propagate()
+            self.propagate_controls()
 
     @property
     def mute(self):
@@ -84,6 +92,7 @@ class Track(object):
         self._mute = value
         if self._mute:
             self._solo = False
+        self.propagate_controls()
 
     @property
     def solo(self):
@@ -94,6 +103,7 @@ class Track(object):
         self._solo = value
         if self._solo:
             self._mute = False
+        self.propagate_controls()
 
     def get_state(self):
         return self.state
@@ -105,7 +115,9 @@ class Track(object):
             if self.led_color_mode == LedColors.velocity and value > 0:
                 value = self.track_velocity
 
-            messages.append([DisplayMsgTypes.track, self.track_id, id, value])
+            note = self.controller.get_track_step_note(self.track_id, id)
+            msg = [DisplayMsgTypes.track, self.track_id, note, value]
+            messages.append(msg)
 
         return messages
 
@@ -136,3 +148,14 @@ class Track(object):
             if len(messages):
                 # print("Sending led message", messages)
                 self.display_queue(messages)
+
+    def propagate_controls(self):
+        messages = []
+        for control in ["solo", "mute"]:
+            note = self.controller.get_control_target_note(
+                self.track_id, control
+            )
+            vel = 127 if getattr(self, control) else 0
+            messages.append([DisplayMsgTypes.track, self.track_id, note, vel])
+
+        self.display_queue(messages)

@@ -5,10 +5,10 @@ class Router(object):
     def __init__(self, config, display):
         super(Router, self).__init__()
         self.config = config
-        self.input_mode_controls = config.get("input_mode_controls", [])
-        self.step_controls = config["note_input_map"]
-        self.track_controls = config.get("track_select_map", [])
-        self.track_controls.extend(config.get("track_controls_map", []))
+        self.input_mode_controls = self.config.get("input_mode_controls", [])
+        self.step_controls = self.config["note_input_map"]
+        self.track_controls = self.config.get("all_track_controls", [])
+
         self.display = display
 
         self.input_mode = InputMode(0)

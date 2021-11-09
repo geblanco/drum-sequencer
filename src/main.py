@@ -1,3 +1,4 @@
+import os
 import yaml
 import time
 import argparse
@@ -6,6 +7,8 @@ from pathlib import Path
 from rtmidi.midiutil import open_midiinput, open_midioutput
 
 from clock import Clock, LedClock
+from utils import ImmutableDict
+from utils import serialize_dict
 from router import Router
 from wizard import query_yn
 from sequencer import Sequencer
@@ -42,7 +45,7 @@ def create_clock(config, controller_input, clock_source, clock_port):
     if clock_source == ClockSource.controller:
         port = controller_input
     elif clock_source == ClockSource.external:
-        port = open_midiinput(clock_port)
+        port, _ = open_midiinput(clock_port, interactive=True)
 
     print(
         f"Using clock source: {clock_source}, "
@@ -109,6 +112,7 @@ def connect_components(
 
 def load_config(config_path):
     config = yaml.safe_load(open(config_path))
+    print(f"Load config from {config_path}")
     enums = [
         ("note_mode", NoteMode),
         ("track_mode", TrackMode),
@@ -132,44 +136,74 @@ def load_config(config_path):
             35 + i for i in range(config["nof_tracks"])
         ]
 
-    return config
+    config["all_track_controls"] = config.get("track_select_map").copy()
+    if config.get("track_controls_map", None) is not None:
+        solos = config.get("track_controls_map")["solo"].copy()
+        mutes = config.get("track_controls_map")["mute"].copy()
+        config["all_track_controls"].extend([*solos, *mutes])
+
+    return ImmutableDict(config)
 
 
-def load_programmers():
+def load_programmers(config_path):
     programmers = {}
-    programmers_file = Path("./programmers.yaml")
+    programmer_name = os.path.dirname(config_path)
+    programmers_file = Path(programmer_name).joinpath("programmers.yaml")
     if programmers_file.exists():
         programmers = yaml.safe_load(open(programmers_file))
+        print(f"Load programmers file from {programmers_file}")
 
     return programmers
 
 
-def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
-    config = load_config(config)
+def save_controller_ports(ctrl, config_path):
+    config = yaml.safe_load(open(config_path))
+    config["controller_input_port"] = ctrl["input_name"]
+    config["controller_output_port"] = ctrl["output_name"]
+    config = serialize_dict(config)
+    with open(config_path, "w") as fout:
+        fout.write(yaml.dump(config))
 
+
+def parse_ports(config, ctrl_inport, ctrl_outport, output_port):
     if output_port is not None and output_port.strip() == "":
         output_port = None
+
+    if ctrl_inport is None:
+        ctrl_inport = config.get("controller_input_port", None)
+
+    if ctrl_outport is None:
+        ctrl_outport = config.get("controller_output_port", None)
+
+    return ctrl_inport, ctrl_outport, output_port
+
+
+def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
+    cfg = load_config(config)
+    ctrl_inport, ctrl_outport, output_port = parse_ports(
+        cfg, ctrl_inport, ctrl_outport, output_port
+    )
 
     clock_source = setup_clock_source(ctrl_inport, clock_port)
     ctrl = open_controller(ctrl_inport, ctrl_outport)
     print(f"\nOpening Sequencer port\n{'=' * 15}")
     sequencer_output, _ = open_midioutput(output_port)
-    start_controller(ctrl, load_programmers())
+    start_controller(ctrl, load_programmers(config))
     flush_controller(ctrl)
 
-    clock = create_clock(config, ctrl["input_port"], clock_source, clock_port)
+    clock = create_clock(cfg, ctrl["input_port"], clock_source, clock_port)
     input_queue, output_queue, led_queue, display_queue = create_queues(
-        config=config,
+        config=cfg,
         controller_output=ctrl["output_port"],
         sequencer_output=sequencer_output,
     )
-    router = Router(config, display_queue)
-    sequencer = Sequencer(config, display_queue, output_queue)
+    router = Router(cfg, display_queue)
+    sequencer = Sequencer(cfg, display_queue, output_queue)
     connect_components(
         clock, input_queue, ctrl["input_port"], sequencer, router
     )
-    if config["led_config"]["led_clock"]:
-        clock.add_clock_handler(LedClock(config, sequencer, display_queue))
+    if cfg["led_config"]["led_clock"]:
+        clock.add_clock_handler(LedClock(cfg, sequencer, display_queue))
 
     # start necessary threads: InputQueue, OutputQueue, clock (if internal)
     print("Starting threads...")
@@ -196,9 +230,10 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
     output_queue.stop()
     clock.stop()
 
-    finish_controller(ctrl, load_programmers())
+    finish_controller(ctrl, load_programmers(config))
     close_controller(ctrl)
     sequencer_output.close_port()
+    save_controller_ports(ctrl, config)
 
 
 if __name__ == "__main__":

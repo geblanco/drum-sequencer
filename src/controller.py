@@ -6,7 +6,7 @@ from rtmidi.midiutil import open_midiinput, open_midioutput
 
 def controller_name_from_port(portname):
     return (
-        portname.split(":")[0].lower().replace(" ", "_") + ".yaml"
+        portname.split(":")[0].lower().replace(" ", "_")
     )
 
 
@@ -30,8 +30,8 @@ def start_controller(controller, programmers):
     portname = controller_name_from_port(controller["input_name"])
     program = programmers.get(portname, None)
     if program is not None:
-        data = bytearray.fromhex(program.start)
-        print(f"Programming controller {portname}...")
+        data = bytearray.fromhex(program["start"])
+        print(f"Start programming controller {portname}...")
         controller["output_port"].send_message(data)
     else:
         print("No programmer found for controller")
@@ -41,8 +41,8 @@ def finish_controller(controller, programmers):
     portname = controller_name_from_port(controller["input_name"])
     program = programmers.get(portname, None)
     if program is not None:
-        data = bytearray.fromhex(program.finish)
-        print(f"Programming controller {portname}...")
+        data = bytearray.fromhex(program["finish"])
+        print(f"Finish programming controller {portname}...")
         controller["output_port"].send_message(data)
     else:
         print("No programmer found for controller")

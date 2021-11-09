@@ -12,9 +12,21 @@ class Guesser:
         self.midiout = midiout
         self.waiter = MidiWaiter(midiin, midiout, max_retries=-1)
 
-    @staticmethod
-    def fill_anchors(anchors, ncols):
-        print("filling anchors", "anchors", anchors, ncols)
+    def _get_query_pad_value(self, query_pad):
+        value = None
+        if query_pad.type == "note_on":
+            value = query_pad.note
+        elif query_pad.type == "control_change":
+            value = query_pad.control
+        else:
+            raise ValueError(
+                "You pressed a weird button, don't know what to do with it"
+                f" here it is: {query_pad}"
+            )
+
+        return value
+
+    def fill_anchors(self, anchors, ncols):
         guessed = []
         incr = 1
         dir = -1 if anchors[-2] - anchors[-1] > 0 else 1
@@ -29,7 +41,6 @@ class Guesser:
             guessed.extend([start + (dir * i) for i in range(0, amount, incr)])
             guessed.append(end)
 
-        print("guessed", guessed)
         return guessed
 
     def guess_select_track(self, amount):
@@ -42,16 +53,7 @@ class Guesser:
         for token in tokens:
             print(f"Select {token}")
             query_pad = self.waiter.wait_for_key(NoteMode.toggle)
-            if query_pad.type == "note_on":
-                anchors.append(query_pad.note)
-            elif query_pad.type == "control_change":
-                anchors.append(query_pad.control)
-                # if it is not a control_change, what is it?
-            else:
-                raise ValueError(
-                    "You pressed a weird button, don't know what to do with it"
-                    f" here it is: {query_pad}"
-                )
+            anchors.append(self._get_query_pad_value(query_pad))
 
         return anchors
 
@@ -80,7 +82,7 @@ class Guesser:
         if len(anchors) == nof_steps:
             return anchors
 
-        guessed = Guesser.fill_anchors(anchors, ncols)
+        guessed = self.fill_anchors(anchors, ncols)
         assert(len(guessed) == nof_steps)
         return guessed
 
@@ -93,6 +95,15 @@ class Guesser:
             for i in range(0, len(first_track_map)):
                 note = first_track_map[i] - diff
                 guessed.append(note)
+
+        return guessed
+
+    def guess_single_pad(self, query, nof_tracks):
+        guessed = []
+        for i in range(0, nof_tracks):
+            print(f"Select {query} pad for track {i}")
+            query_pad = self.waiter.wait_for_key(NoteMode.toggle)
+            guessed.append(self._get_query_pad_value(query_pad))
 
         return guessed
 

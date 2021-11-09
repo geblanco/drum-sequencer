@@ -1,27 +1,25 @@
 # noqa: E402
 
-import sys
 import yaml
 import time
 import mido
 
-from enum import Enum
 from math import floor
 
-sys.path.append("..")
+from utils import serialize_dict
 from controller import (  # noqa: E402
     flush_controller,
     open_controller,
     search_controller_config,
 )
-from .guesser import Guesser  # noqa: E402
+from wizard.guesser import Guesser  # noqa: E402
 from modes import (  # noqa: E402
     TrackMode,
     TrackSelectMode,
     NoteMode,
     LedColors,
 )
-from .prompts import (  # noqa: E402
+from wizard.prompts import (  # noqa: E402
     query_num,
     query_choices,
     query_yn,
@@ -223,10 +221,15 @@ def setup_controller(midiin, midiout, config):
         )
         note_input_map.extend(new_map)
 
+    if query_yn("Setup solos/mutes?"):
+        solo_map = guesser.guess_single_pad("solo", nof_displayed_tracks)
+        mute_map = guesser.guess_single_pad("mute", nof_displayed_tracks)
+
     return dict(
         note_mode=note_mode,
         input_channel=i_channel,
         note_input_map=note_input_map,
+        track_controls_map=dict(solo=solo_map, mute=mute_map),
         track_select_map=track_select_pads,
         led_config=dict(
             led_channel=i_channel,
@@ -247,19 +250,6 @@ def setup_velocities(config):
     ret["led_clock"] = query_yn(clock_text)
 
     return ret
-
-
-def serialize_dict(config_dict):
-    config = config_dict.copy()
-    for key, value in config.items():
-        if isinstance(value, Enum):
-            config[key] = value.value
-        elif isinstance(value, dict):
-            for subk, subv in value.items():
-                if isinstance(subv, Enum):
-                    config[key][subk] = subv.value
-
-    return config
 
 
 def load_config(conf_path):
@@ -306,11 +296,11 @@ def main(overwrite=False):
             config["nof_steps"],
             LedColors(config["led_config"]["led_color_mode"]),
         )
-        if query_yn("Did the track correctly lit?"):
+        if query_yn("Did the tracks correctly lit?"):
             print(
-                "Great!!\nWe are finished, go on and create some music!\n"
+                "\n\nGreat!!\nWe are finished, go on and create some music!\n"
                 "Don't forget to share your config so other folks can use it!"
-                "=)"
+                "\n(:"
             )
         else:
             print("Sorry, something went wrong...")

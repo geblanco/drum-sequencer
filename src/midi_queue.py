@@ -1,10 +1,9 @@
 import mido
-import math
 import queue
 import logging
 import threading
 
-from modes import NoteMode, InputMode, DisplayMsgTypes, TrackMode
+from modes import NoteMode, InputMode, DisplayMsgTypes
 from filters import CutThrough, CCToggle, NoteToggle, ChannelFilter, Composite
 from rtmidi.midiconstants import (CONTROLLER_CHANGE, NOTE_ON, NOTE_OFF)
 
@@ -127,43 +126,26 @@ class DisplayQueue(MidiQueue):
         self.nof_displayed_tracks = config["nof_displayed_tracks"]
         self.note_input_map = config["note_input_map"]
 
+        self.track_controls_map = config.get("all_track_controls", [])
+
         led_config = config["led_config"]
         self.led_channel = led_config.get("led_channel", 0)
-        self.led_output_map = led_config.get(
-            "led_output_map", config["note_input_map"]
-        )
         self.led_queue = led_queue
 
         self.input_mode = InputMode(0)
         self.display_index = 0
 
-    def _process_step_message(self, message):
+    def _process_note_message(self, message):
         assert(len(message) == 4)
-        _, track_id, step_id, step_value = message
+        _, _, note, step_value = message
 
-        multitrack = (
-            self.track_mode == TrackMode.all_tracks or
-            self.nof_displayed_tracks > 1
-        )
-        if multitrack:
-            start = (track_id - self.display_index) * self.nof_steps
-            end = ((track_id - self.display_index) * self.nof_steps + self.nof_steps)
-        else:
-            start = 0
-            end = self.nof_steps
-        end_note = self.led_output_map[start:end][step_id]
         msg = mido.Message(
             type="note_on" if step_value > 0 else "note_off",
             channel=self.led_channel,
-            note=end_note,
+            note=note,
             velocity=step_value,
         )
         return msg.bytes()
-
-    def get_target_track(self, note):
-        track_id = self.note_input_map.index(note)
-        track_id = math.floor(track_id / self.nof_steps)
-        return track_id + self.display_index
 
     def set_mode(self, mode):
         self.input_mode = mode
@@ -209,7 +191,7 @@ class DisplayQueue(MidiQueue):
                 if msg_type == DisplayMsgTypes.clock:
                     to_queue.append(msg[1])
                 elif msg_type == DisplayMsgTypes.track:
-                    to_queue.append(self._process_step_message(msg))
+                    to_queue.append(self._process_note_message(msg))
 
             if len(to_queue):
                 self.led_queue(to_queue)

@@ -1,8 +1,10 @@
+controller_input_port: Launchpad X:Launchpad X LPX MIDI In 28:1
+controller_output_port: Launchpad X:Launchpad X LPX MIDI In 28:1
 input_channel: 0
 led_config:
   led_channel: 0
-  led_color_mode: true
   led_clock: true
+  led_color_mode: true
   led_colors:
   - 15
   - 30
@@ -81,7 +83,18 @@ note_input_map:
 - 17
 - 18
 note_mode: toggle
-output_channel: 0
+output_channel: 15
+track_controls_map:
+  mute:
+  - 79
+  - 59
+  - 39
+  - 19
+  solo:
+  - 89
+  - 69
+  - 49
+  - 29
 track_mode: select_tracks
 track_select_map:
 - 91
