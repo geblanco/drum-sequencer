@@ -19,6 +19,7 @@ class Clock(object):
         self._tickcnt = 0
         self._signature = int((4 / signature) * 24)
 
+        self._slaves = []
         self._clock_handlers = []
         self._drain_handlers = []
         self._internal_clock = None
@@ -35,6 +36,9 @@ class Clock(object):
             message, _ = message
 
         if message[0] == TIMING_CLOCK:
+            for obj in self._slaves:
+                obj.tick(self._tickcnt)
+
             if self._tickcnt % self._signature == 0:
                 for clk_hand in self._clock_handlers:
                     clk_hand.tick()
@@ -44,14 +48,14 @@ class Clock(object):
         elif message[0] in (SONG_CONTINUE, SONG_START):
             self.running = True
             log.info("START/CONTINUE received.")
-            for clk_hand in self._clock_handlers:
+            for clk_hand in [*self._clock_handlers, *self._slaves]:
                 clk_hand.start()
 
         elif message[0] == SONG_STOP:
             self.running = False
             self._tickcnt = 0
             log.info("STOP received.")
-            for clk_hand in self._clock_handlers:
+            for clk_hand in [*self._clock_handlers, *self._slaves]:
                 clk_hand.stop()
 
         else:
@@ -62,7 +66,7 @@ class Clock(object):
         self._internal_clock = InternalClock(self.bpm)
         self._internal_clock.set_callback(self)
 
-    def add_clock_handler(self, obj):
+    def _check_handler(self, obj):
         attr_fns = ["start", "stop", "tick"]
         for attr in attr_fns:
             if getattr(obj, attr, None) is None:
@@ -71,7 +75,13 @@ class Clock(object):
                     f" {attr_fns}!. {attr} not found"
                 )
 
+    def add_clock_handler(self, obj):
+        self._check_handler(obj)
         self._clock_handlers.append(obj)
+
+    def add_slave(self, obj):
+        self._check_handler(obj)
+        self._slaves.append(obj)
 
     def add_drain_handler(self, obj):
         self._drain_handlers.append(obj)

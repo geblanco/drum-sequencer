@@ -69,16 +69,16 @@ class ViewMode(IndexEnum):
     """
     Controller can be set to different modes:
 
-    sequencer:   The standard mode to sequence steps
-    drumpad:     Just like a maschine, trigger a sound for each pad.
-                 In the future, track select pads can be multipliers,
-                 to repeat each sound on a 1/2, 1/4, 1/8, 1/16 fashion
-    velocities:  Select velocity for each track. In the future a humanize
-                 button could be added
+    sequencer:  The standard mode to sequence steps
+    drumpad:    Just like a maschine, trigger a sound for each pad.
+                In the future, track select pads can be multipliers,
+                to repeat each sound on a 1/2, 1/4, 1/8, 1/16 fashion
+    velocity:   Select velocity for each track. In the future a humanize
+                button could be added
     """
     sequencer = "sequencer"
     drumpad = "drumpad"
-    velocities = "velocities"
+    velocity = "velocity"
 
 
 class DisplayMsgTypes(IndexEnum):

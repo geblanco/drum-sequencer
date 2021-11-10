@@ -6,10 +6,14 @@ from rtmidi.midiutil import open_midiinput
 from clock import Clock, LedClock
 from router import Router
 from wizard import query_yn
-from views import Sequencer, Drumpad
-from modes import ClockSource, ViewMode
+from modes import ClockSource, ViewMode, NoteMode
 from midi_queue import InputQueue, OutputQueue, DisplayQueue
-
+from views import (
+    Sequencer,
+    Drumpad,
+    Velocity,
+    get_drumpad_view_hook
+)
 from utils import (
     load_config,
     load_programmers,
@@ -137,8 +141,20 @@ def setup_components(
         if "drumpad" in views:
             drumpad = Drumpad(cfg, display_queue, output_queue)
             router.add_view(ViewMode.drumpad, drumpad)
+            clock.add_slave(drumpad)
+
+        if "velocity" in views:
+            velocity = Velocity(
+                config=cfg,
+                track_controller=sequencer.track_controller,
+                track_getter=sequencer.get_track,
+                display_queue=display_queue,
+            )
+            router.add_view(ViewMode.velocity, velocity)
 
     router.add_view(ViewMode.sequencer, sequencer)
+    on_active, on_inactive = get_drumpad_view_hook(input_queue)
+    router.add_view_event_hooks(on_active, on_inactive)
     input_queue.add_handler(router.process)
     clock.add_clock_handler(sequencer)
 

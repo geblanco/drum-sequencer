@@ -1,6 +1,6 @@
 import math
 
-from utils import ButtonToggler
+from utils import SliceSelector
 from modes import TrackSelectMode, TrackMode
 
 
@@ -20,7 +20,7 @@ class TrackController(object):
         self.led_output_map = config["led_config"].get(
             "led_output_map", config["note_input_map"]
         )
-        self.track_selector = ButtonToggler(
+        self.track_selector = SliceSelector(
             sel_mode=self.track_select_mode,
             sel_map=config.get("track_select_map", []),
             nof_displayed_opts=self.nof_displayed_tracks,
@@ -47,6 +47,11 @@ class TrackController(object):
         track_id = self.note_input_map.index(note)
         track_id = math.floor(track_id / self.nof_steps)
         return track_id + self.display.display_index
+
+    def get_target_step(self, note):
+        step_id = self.note_input_map.index(note)
+        step_id = step_id % self.nof_steps
+        return step_id
 
     def get_control_target_note(self, track_id, control):
         target = self.track_controls_map["solo"]
@@ -95,3 +100,6 @@ class TrackController(object):
 
         end_note = self.led_output_map[start:end][step_id]
         return end_note
+
+    def get_displayed_track_ids(self):
+        return self.track_selector.get_selected()

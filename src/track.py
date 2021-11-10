@@ -36,6 +36,7 @@ class Track(object):
             "led_color_mode", LedColors.default
         )
         self.track_velocity = self.config.get("note_velocity", 127)
+        self.track_velocity = [self.track_velocity] * self.nof_steps
         if (
             "led_colors" not in led_config and
             self.led_color_mode == LedColors.velocity
@@ -47,7 +48,7 @@ class Track(object):
                 "together with `led_config.led_color_mode: default`"
             )
         elif self.led_color_mode == LedColors.velocity:
-            self.track_velocity = led_config["led_colors"][self.track_id]
+            self.track_color = led_config["led_colors"][self.track_id]
 
         self.state = [0] * self.nof_steps
         # light off leds
@@ -55,7 +56,8 @@ class Track(object):
 
     def __call__(self, step, value):
         if self.note_mode == NoteMode.toggle:
-            self.state[step] = 127 - self.state[step]
+            self.state[step] = self.track_velocity[step] - self.state[step]
+            # self.state[step] = 127 - self.state[step]
         else:
             self.state[step] = value
 
@@ -105,16 +107,32 @@ class Track(object):
             self._mute = False
         self.propagate_controls()
 
+    def get_velocity(self):
+        return self.track_velocity
+
+    def set_velocity(self, values):
+        if isinstance(values, (list, tuple)):
+            assert(len(values) == self.nof_steps)
+        else:
+            values = [values] * self.nof_steps
+
+        for i, val in enumerate(values):
+            self.track_velocity[i] = val
+
     def get_state(self):
         return self.state
+
+    def get_step_velocity(self, step_id):
+        value = self.state[step_id]
+        if self.led_color_mode == LedColors.velocity and value > 0:
+            value = self.track_color
+
+        return value
 
     def step_ids_to_led_messages(self, step_ids):
         messages = []
         for id in step_ids:
-            value = self.state[id]
-            if self.led_color_mode == LedColors.velocity and value > 0:
-                value = self.track_velocity
-
+            value = self.get_step_velocity(id)
             note = self.controller.get_track_step_note(self.track_id, id)
             msg = [DisplayMsgTypes.track, self.track_id, note, value]
             messages.append(msg)

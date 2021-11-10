@@ -30,7 +30,7 @@ class ImmutableDict(dict):
     popitem     = _immutable  # noqa: E221
 
 
-class ButtonToggler(object):
+class SliceSelector(object):
     def __init__(
         self,
         sel_mode,
@@ -126,12 +126,19 @@ def load_config(config_path):
     config["led_config"]["led_color_mode"] = LedColors(
         config["led_config"].get("led_color_mode", LedColors.default)
     )
+
     if config["led_config"].get("led_map_out", None) is None:
         config["led_config"]["led_map_out"] = config["note_input_map"]
 
     if config.get("note_output_map", None) is None:
         config["note_output_map"] = [
             35 + i for i in range(config["nof_tracks"])
+        ]
+
+    if config.get("drumpad_output_map", None) is None:
+        nof_drumpads = min(len(config["note_input_map"]), 16)
+        config["drumpad_output_map"] = [
+            35 + i for i in range(nof_drumpads)
         ]
 
     config["all_track_controls"] = config.get("track_select_map").copy()

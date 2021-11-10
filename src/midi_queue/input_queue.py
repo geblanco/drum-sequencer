@@ -30,19 +30,25 @@ class InputQueue(MidiQueue):
         self._setup_filters()
 
     def _setup_filters(self):
-        self.filters = [ChannelFilter(channels=[self.channel])]
-        if self.note_mode == NoteMode.default:
+        self.filters = {
             # no processing, just pass cc and note_on, note_off, as is
-            event_types = [CONTROLLER_CHANGE, NOTE_ON, NOTE_OFF]
-            self.filters.append(CutThrough(event_types=event_types))
-        elif self.note_mode == NoteMode.toggle:
+            NoteMode.default: [
+                ChannelFilter(channels=[self.channel]),
+                CutThrough(event_types=[CONTROLLER_CHANGE, NOTE_ON, NOTE_OFF])
+            ],
             # allow cc as is, only note_on events with velocity > 0
             # many controllers pass NOTE_ON with volicity and same with
             # veolicty == 0 when released, avoid duplication
-            self.filters.append(Composite(CCToggle(), NoteToggle()))
+            NoteMode.toggle: [
+                ChannelFilter(channels=[self.channel]),
+                Composite(CCToggle(), NoteToggle())
+            ]
+        }
 
     def filter(self, message):
-        return any([filt.match(message) for filt in self.filters])
+        return any([
+            filt.match(message) for filt in self.filters[self.note_mode]
+        ])
 
     def add_handler(self, fn):
         self._handlers.append(fn)
@@ -50,7 +56,7 @@ class InputQueue(MidiQueue):
     def process(self, message):
         if message is not None:
             midomsg = None
-            for filt in self.filters:
+            for filt in self.filters[self.note_mode]:
                 message = filt.process(message)
                 if message is None:
                     break

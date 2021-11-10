@@ -1,5 +1,12 @@
 controller_input_port: Launchpad X:Launchpad X LPX MIDI In 28:1
 controller_output_port: Launchpad X:Launchpad X LPX MIDI In 28:1
+drumpad_multiplier_map:
+- 69
+- 59
+- 49
+- 39
+- 29
+- 19
 input_channel: 0
 led_config:
   led_channel: 0
@@ -105,3 +112,4 @@ view_select_map:
 - 94
 views:
 - drumpad
+- velocity

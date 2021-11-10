@@ -83,11 +83,6 @@ class Sequencer(View):
                 msgs.append(track_msg.bytes())
         return msgs
 
-    def _step_id_from_note_map(self, note):
-        step_id = self.note_input_map.index(note)
-        step_id = step_id % self.nof_steps
-        return step_id
-
     def __call__(self, note, value):
         if note in self.note_input_map:
             self.process_step_event(note, value)
@@ -98,7 +93,7 @@ class Sequencer(View):
     def process_step_event(self, note, value):
         if note in self.note_input_map:
             target_track_id = self.track_controller.get_target_track(note)
-            step_id = self._step_id_from_note_map(note)
+            step_id = self.track_controller.get_target_step(note)
             self.tracks[target_track_id](step_id, value)
 
     # Process track events
@@ -119,6 +114,9 @@ class Sequencer(View):
         for track in self.selected_tracks():
             track.propagate()
             track.propagate_controls()
+
+    def get_track(self, track_id):
+        return self.tracks[track_id]
 
     def get_track_state(self, track_id):
         return self.tracks[track_id].get_state()
