@@ -1,33 +1,42 @@
-from modes import InputMode
+from utils import ButtonToggler
+from modes import ViewMode, SelectMode
 
 
 class Router(object):
-    def __init__(self, config, display):
+    def __init__(self, config, display, flush_view_hook):
         super(Router, self).__init__()
         self.config = config
-        self.input_mode_controls = self.config.get("input_mode_controls", [])
-        self.step_controls = self.config["note_input_map"]
-        self.track_controls = self.config.get("all_track_controls", [])
 
         self.display = display
+        self.flush_view_hook = flush_view_hook
+        self.mode_toggler = ButtonToggler(
+            sel_mode=config.get("view_select_mode", SelectMode.arrows),
+            sel_map=self.config.get("view_select_map", []),
+            nof_displayed_opts=1,
+            max_opts=len(ViewMode),
+            update_hook=self.update_view,
+        )
 
-        self.input_mode = InputMode(0)
-        self.sequencer_handler = lambda *args: None
-        self.one_shot_handler = lambda *args: None
-        self.velocities_handler = lambda *args: None
-        self.track_handler = lambda *args: None
+        self.view = ViewMode(ViewMode.sequencer)
+        self.views = {}
 
-    def set_sequencer_handler(self, handler):
-        self.sequencer_handler = handler
+    def add_view(self, view_name, view):
+        self.views[view_name] = view
 
-    def set_one_shot_handler(self, handler):
-        self.one_shot_handler = handler
+    def update_view(self, view_index):
+        if view_index < len(self.views):
+            self.view = ViewMode.from_index(view_index)
+            self.display.set_view(self.view)
+            view = self.get_current_view()
+            self.flush_view_hook()
+            view.propagate()
 
-    def set_velocities_handler(self, handler):
-        self.velocities_handler = handler
-
-    def set_track_handler(self, handler):
-        self.track_handler = handler
+    def get_current_view(self):
+        view = [
+            view for name, view in self.views.items()
+            if name == self.view
+        ]
+        return view[0]
 
     def process(self, message):
         if message.type in ["note_on", "note_off"]:
@@ -37,15 +46,7 @@ class Router(object):
             note = message.control
             value = message.value
 
-        if note in self.input_mode_controls:
-            self.input_mode = InputMode(self.input_mode_controls.index(note))
-            self.display.set_mode(self.input_mode)
-        elif note in self.step_controls:
-            if self.input_mode == InputMode.sequencer:
-                self.sequencer_handler(note, value)
-            elif self.input_mode == InputMode.one_shot:
-                self.one_shot_handler(note, value)
-            else:
-                self.velocities_handler(note, value)
-        elif note in self.track_controls:
-            self.track_handler(note, value)
+        if self.mode_toggler.should_toggle(note):
+            self.mode_toggler.toggle(note)
+        else:
+            self.get_current_view()(note, value)

@@ -100,3 +100,8 @@ track_select_map:
 - 91
 - 92
 track_select_mode: arrows
+view_select_map:
+- 93
+- 94
+views:
+- drumpad

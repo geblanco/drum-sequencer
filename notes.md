@@ -21,6 +21,7 @@ The most probable mode is:
 
 ToDo
 ===
+- Add view mode selection to wizard
 - ~~load_map~~
 - ~~output queue, used in leds and notes~~
 - ~~input queue, add handler, remove midiin? and call from here?~~
@@ -40,7 +41,6 @@ ToDo
   The caveat could be speed, is it reasonable to use this mechanism for the sequencer?
   ~~
 - ~~take back timestamp, is present in all callbacks~~
-  ToDo := Check working, Midi Queue and Clock should be enough
 - ~~move modes to separate files (remove utils?)~~
 - ~~wizard: setup velocity controller supports different lights? check velocity changes color~~
 
@@ -53,5 +53,5 @@ ToDo
   A&H displays one track, launchpad can display more...
   check: \_select\_track and process in sequencer
   ~~
-- track selection by blocks, when select mode and display tracks > 1
-- clock accept time signatures from sequencer
+- ~~track selection by blocks, when select mode and display tracks > 1~~
+- ~~clock accept time signatures from sequencer~~

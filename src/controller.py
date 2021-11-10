@@ -48,20 +48,31 @@ def finish_controller(controller, programmers):
         print("No programmer found for controller")
 
 
+def open_port(name, io, device, virtual=None):
+    status = f"Opening {device} {io}"
+
+    if name is None or name.strip() == "":
+        name = None
+        status = f"\n{status}...\n{'=' * 15}"
+    else:
+        status += f" {name}..."
+
+    print(status)
+    if io == "input":
+        fn = open_midiinput
+    else:
+        fn = open_midioutput
+
+    return fn(name, use_virtual=virtual)
+
+
 def open_controller(ctrl_inport=None, ctrl_outport=None):
-    ctrl = {}
-
-    if ctrl_inport is not None and ctrl_inport.strip() == "":
-        ctrl_inport = None
-
-    if ctrl_outport is not None and ctrl_outport.strip() == "":
-        ctrl_outport = None
-
-    print(f"\nOpening controller input...\n{'=' * 15}")
-    ctrl["input_port"], ctrl["input_name"] = open_midiinput(ctrl_inport)
-    print(f"\nOpening controller output...\n{'=' * 15}")
-    ctrl["output_port"], ctrl["output_name"] = open_midioutput(ctrl_outport)
-    return ctrl
+    inport, inname = open_port(ctrl_inport, "input", "controller")
+    outport, outname = open_port(ctrl_inport, "output", "controller")
+    return {
+        "input_port": inport, "input_name": inname,
+        "output_port": outport, "output_name": outname,
+    }
 
 
 def close_controller(ctrl):

@@ -3,7 +3,7 @@ from modes import DisplayMsgTypes
 
 
 class LedClock(object):
-    def __init__(self, config, sequencer, display_queue):
+    def __init__(self, config, track_state_getter, display_queue):
         super(LedClock, self).__init__()
         led_config = config["led_config"]
 
@@ -19,7 +19,7 @@ class LedClock(object):
             "led_colors", [127] * self.nof_tracks
         )
         self.note_map = config["note_input_map"]
-        self.sequencer = sequencer
+        self.track_state_getter = track_state_getter
         self._current_beat = 0
 
     def msg_from_tick_track(self, tick, track_id, vel_id, msg_on=True):
@@ -39,7 +39,7 @@ class LedClock(object):
         for track_id in range(self.nof_displayed_tracks):
             target_track_id = track_id + self.display_queue.display_index
             prev_tick = (self._current_beat - 1) % self.nof_steps
-            track_state = self.sequencer.get_track_state(target_track_id)
+            track_state = self.track_state_getter(target_track_id)
             if track_state[self._current_beat] == 0:
                 on_msg = self.msg_from_tick_track(
                     self._current_beat, track_id, target_track_id

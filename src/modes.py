@@ -2,12 +2,18 @@ from enum import Enum
 
 
 """
-The most probable mode is:
+The most useful mode is:
 * toggle, handled, select-tracks
 """
 
 
-class NoteMode(Enum):
+class IndexEnum(Enum):
+    @classmethod
+    def from_index(cls, index):
+        return cls([val for val in cls][index])
+
+
+class NoteMode(IndexEnum):
     """Note Modes
     * Default: A note-on triggers the pad, a note-off triggers it off
     * Toggle: A note-on toggles the pad state from on/off and viceversa
@@ -16,7 +22,7 @@ class NoteMode(Enum):
     toggle = "toggle"
 
 
-class LedMode(Enum):
+class LedMode(IndexEnum):
     """Led Modes
     * handled: a note-on should be sent to the controller to let it lit
     * partially-handled: note-on is not sent, the controller itself gets lit,
@@ -28,12 +34,12 @@ class LedMode(Enum):
     unhandled = "unhandled"
 
 
-class LedColors(Enum):
+class LedColors(IndexEnum):
     default = None
     velocity = True
 
 
-class TrackMode(Enum):
+class TrackMode(IndexEnum):
     """Track modes
     * Select-tracks: Only one track at a time is displayed.
     * All-tracks: All tracks are displayed at the same time (big controller or
@@ -43,33 +49,39 @@ class TrackMode(Enum):
     all_tracks = "all_tracks"
 
 
-class TrackSelectMode(Enum):
+class SelectMode(IndexEnum):
     arrows = "arrows"
     select = "select"
 
 
-class ClockSource(Enum):
+class TrackSelectMode(IndexEnum):
+    arrows = "arrows"
+    select = "select"
+
+
+class ClockSource(IndexEnum):
     controller = "controller"
     external = "external"
     internal = "internal"
 
 
-class InputMode(Enum):
+class ViewMode(IndexEnum):
     """
     Controller can be set to different modes:
 
     sequencer:   The standard mode to sequence steps
-    one_shot:    Just like a maschine, trigger a sound for each pad.
+    drumpad:     Just like a maschine, trigger a sound for each pad.
                  In the future, track select pads can be multipliers,
                  to repeat each sound on a 1/2, 1/4, 1/8, 1/16 fashion
     velocities:  Select velocity for each track. In the future a humanize
                  button could be added
     """
-    sequencer = 0
-    one_shot = 1
-    velocities = 2
+    sequencer = "sequencer"
+    drumpad = "drumpad"
+    velocities = "velocities"
 
 
-class DisplayMsgTypes(Enum):
+class DisplayMsgTypes(IndexEnum):
     clock = "clock"
     track = "track"
+    one_shot = "one_shot"

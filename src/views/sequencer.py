@@ -1,16 +1,17 @@
 import mido
 
+from .base import View
 from track import Track
 from modes import TrackMode
 from track_control import TrackController
 
 
-class Sequencer(object):
+class Sequencer(View):
     def __init__(
         self,
         config,
         display_queue,
-        output_queue=None,
+        output_queue,
     ):
         self.config = config
         self.display = display_queue
@@ -87,6 +88,12 @@ class Sequencer(object):
         step_id = step_id % self.nof_steps
         return step_id
 
+    def __call__(self, note, value):
+        if note in self.note_input_map:
+            self.process_step_event(note, value)
+        else:
+            self.process_track_event(note, value)
+
     # Process step events
     def process_step_event(self, note, value):
         if note in self.note_input_map:
@@ -98,15 +105,20 @@ class Sequencer(object):
     # - track events: select, mute, solo, track state
     def process_track_event(self, note, value):
         if self.track_controller.is_track_select(note):
-            selected_tracks = self.track_controller.get_selected_tracks(note)
-            if len(selected_tracks):
-                self.select_tracks(selected_tracks)
+            selected = self.track_controller.toggle_selected_tracks(note)
+            if len(selected):
+                self.select_tracks(selected)
         elif self.track_controller.is_track_control(note):
             # ToDo := solo/mute for each track
             target = self.track_controller.get_control_target_track(note)
             self.apply_track_controls(target)
-            for track in self.tracks:
-                print(track)
+            for track_id in target.values():
+                print(self.tracks[track_id])
+
+    def propagate(self):
+        for track in self.selected_tracks():
+            track.propagate()
+            track.propagate_controls()
 
     def get_track_state(self, track_id):
         return self.tracks[track_id].get_state()
