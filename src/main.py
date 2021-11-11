@@ -9,9 +9,10 @@ from wizard import query_yn
 from modes import ClockSource, ViewMode, NoteMode
 from midi_queue import InputQueue, OutputQueue, DisplayQueue
 from views import (
-    Sequencer,
     Drumpad,
     Velocity,
+    Sequencer,
+    TrackSelect,
     get_drumpad_view_hook
 )
 from utils import (
@@ -133,8 +134,23 @@ def get_flush_callback(ctrl):
 def setup_components(
     cfg, ctrl, clock, input_queue, display_queue, output_queue
 ):
+    led_clock = None
     router = Router(cfg, display_queue, get_flush_callback(ctrl))
     sequencer = Sequencer(cfg, display_queue, output_queue)
+
+    if cfg["led_config"]["led_clock"]:
+        led_clock = LedClock(
+            config=cfg,
+            track_state_getter=sequencer.get_track_state,
+            display_queue=display_queue
+        )
+        clock.add_clock_handler(led_clock)
+
+    track_select = TrackSelect(
+        track_controller=sequencer.track_controller,
+        tracks_selector=sequencer.select_tracks
+    )
+    router.add_view(ViewMode.omni, track_select)
 
     if cfg.get("views", None) is not None:
         views = cfg["views"]
@@ -153,7 +169,7 @@ def setup_components(
             router.add_view(ViewMode.velocity, velocity)
 
     router.add_view(ViewMode.sequencer, sequencer)
-    on_active, on_inactive = get_drumpad_view_hook(input_queue)
+    on_active, on_inactive = get_drumpad_view_hook(input_queue, led_clock)
     router.add_view_event_hooks(on_active, on_inactive)
     input_queue.add_handler(router.process)
     clock.add_clock_handler(sequencer)
@@ -165,14 +181,6 @@ def setup_components(
         clock.add_drain_handler(input_queue)
     else:
         ctrl["input_port"].set_callback(input_queue)
-
-    if cfg["led_config"]["led_clock"]:
-        led_clock = LedClock(
-            config=cfg,
-            track_state_getter=sequencer.get_track_state,
-            display_queue=display_queue
-        )
-        clock.add_clock_handler(led_clock)
 
     return router, (sequencer,)
 

@@ -97,13 +97,10 @@ class Sequencer(View):
             self.tracks[target_track_id](step_id, value)
 
     # Process track events
-    # - track events: select, mute, solo, track state
+    # - track events: mute, solo, track state
+    # - select done in omni view (TrackSelect view)
     def process_track_event(self, note, value):
-        if self.track_controller.is_track_select(note):
-            selected = self.track_controller.toggle_selected_tracks(note)
-            if len(selected):
-                self.select_tracks(selected)
-        elif self.track_controller.is_track_control(note):
+        if self.track_controller.is_track_control(note):
             # ToDo := solo/mute for each track
             target = self.track_controller.get_control_target_track(note)
             self.apply_track_controls(target)

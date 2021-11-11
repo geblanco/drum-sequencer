@@ -75,10 +75,12 @@ class ViewMode(IndexEnum):
                 to repeat each sound on a 1/2, 1/4, 1/8, 1/16 fashion
     velocity:   Select velocity for each track. In the future a humanize
                 button could be added
+    omni:       Omni view can be triggered during any other view
     """
     sequencer = "sequencer"
     drumpad = "drumpad"
     velocity = "velocity"
+    omni = "omni"
 
 
 class DisplayMsgTypes(IndexEnum):

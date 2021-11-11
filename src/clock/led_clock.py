@@ -14,6 +14,7 @@ class LedClock(object):
             "led_output_map", config["note_input_map"]
         )
         self.display_queue = display_queue
+        self.display_on_track = None
         self.led_channel = led_config.get("led_channel", 0)
         self.velocities = led_config.get(
             "led_colors", [127] * self.nof_tracks
@@ -34,7 +35,7 @@ class LedClock(object):
             velocity=velocity,
         )
 
-    def tick(self):
+    def get_multitrack_tick_messages(self):
         messages = []
         for track_id in range(self.nof_displayed_tracks):
             target_track_id = track_id + self.display_queue.display_index
@@ -53,6 +54,30 @@ class LedClock(object):
                 messages.append([DisplayMsgTypes.clock, off_msg.bytes()])
 
             # else step already lit, no note off or note on
+
+        return messages
+
+    def get_single_track_tick_messages(self):
+        messages = []
+        track_id = self.nof_displayed_tracks - 1
+        prev_tick = (self._current_beat - 1) % self.nof_steps
+        on_msg = self.msg_from_tick_track(
+            self._current_beat, track_id, track_id
+        )
+        messages.append([DisplayMsgTypes.clock, on_msg.bytes()])
+
+        off_msg = self.msg_from_tick_track(
+            prev_tick, track_id, track_id, msg_on=False
+        )
+        messages.append([DisplayMsgTypes.clock, off_msg.bytes()])
+        return messages
+
+    def tick(self):
+        messages = []
+        if self.display_on_track is None:
+            messages = self.get_multitrack_tick_messages()
+        else:
+            messages = self.get_single_track_tick_messages()
 
         if len(messages) > 0:
             self.display_queue(messages)

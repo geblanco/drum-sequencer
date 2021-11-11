@@ -51,6 +51,9 @@ class DisplayQueue(MidiQueue):
     def _is_drumpad_view(self):
         return self.view == ViewMode.drumpad
 
+    def _is_velocity_view(self):
+        return self.view == ViewMode.velocity
+
     def set_view(self, mode):
         self.view = mode
 
@@ -58,15 +61,17 @@ class DisplayQueue(MidiQueue):
         ret = None
         if len(message):
             msg_type = message[0]
-            if self._is_seq_view() and self._is_clock_msg(msg_type):
-                # in sequencer mode we display the clock
-                ret = message[1]
-            elif not self._is_clock_msg(msg_type):
+            if self._is_clock_msg(msg_type):
+                if self._is_seq_view() or self._is_drumpad_view():
+                    # in sequencer and drum mode we display the clock
+                    ret = message[1]
+            else:
                 track_id = message[1]
                 valid = False
-                if self._is_seq_view() and self._track_in_display(track_id):
-                    # if track message falls in displayed tracks
-                    valid = True
+                if self._track_in_display(track_id):
+                    if self._is_seq_view() or self._is_velocity_view():
+                        # if track message falls in displayed tracks
+                        valid = True
                 elif self._is_drumpad_view():
                     # or we are in another view
                     valid = True

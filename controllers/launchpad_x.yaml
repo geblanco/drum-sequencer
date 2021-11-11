@@ -1,5 +1,22 @@
-controller_input_port: Launchpad X:Launchpad X LPX MIDI In 28:1
-controller_output_port: Launchpad X:Launchpad X LPX MIDI In 28:1
+controller_input_port: Launchpad X:Launchpad X LPX MIDI In 20:1
+controller_output_port: Launchpad X:Launchpad X LPX MIDI In 20:1
+drumpad_input_map:
+- 81
+- 82
+- 83
+- 84
+- 71
+- 72
+- 73
+- 74
+- 61
+- 62
+- 63
+- 64
+- 51
+- 52
+- 53
+- 54
 drumpad_multiplier_map:
 - 69
 - 59

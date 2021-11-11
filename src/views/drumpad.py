@@ -41,6 +41,9 @@ class Drumpad(View):
             else:
                 self._current_signature = None
 
+            message = self.display_msg(note, 127 if value > 0 else 0)
+            self.display_queue(message)
+
     def send_pad_out(self):
         messages = [
             self.drumpad_msg(pad_id)
@@ -52,11 +55,9 @@ class Drumpad(View):
     def drumpad_msg(self, drum_id, to_display=False):
         message = None
         if to_display:
-            message = [
-                DisplayMsgTypes.one_shot,
-                self.drumpad[drum_id],
-                self.drum_velocity
-            ]
+            message = self.display_msg(
+                self.drumpad[drum_id], self.drum_velocity
+            )
         else:
             message = mido.Message(
                 type="note_on",
@@ -64,9 +65,11 @@ class Drumpad(View):
                 velocity=self.drum_velocity,
                 channel=self.output_channel,
             ).bytes()
-            print("Should send", message)
 
         return message
+
+    def display_msg(self, note, value):
+        return [DisplayMsgTypes.one_shot, note, value]
 
     def propagate(self):
         messages = [

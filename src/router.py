@@ -13,16 +13,20 @@ class Router(object):
             sel_mode=config.get("view_select_mode", SelectMode.arrows),
             sel_map=self.config.get("view_select_map", []),
             nof_displayed_opts=1,
-            max_opts=len(ViewMode),
+            max_opts=len(ViewMode) - 1,
             update_hook=self.update_view,
         )
 
         self.views = {}
         self.view = ViewMode(ViewMode.sequencer)
         self.view_event_hooks = {"active": [], "inactive": []}
+        self.omni_views = []
 
     def add_view(self, view_name, view):
-        self.views[view_name] = view
+        if view_name == ViewMode.omni:
+            self.omni_views.append(view)
+        else:
+            self.views[view_name] = view
 
     def add_view_event_hooks(self, on_active, on_inactive):
         self.view_event_hooks["active"].append(on_active)
@@ -47,6 +51,9 @@ class Router(object):
         ]
         return view[0]
 
+    def is_omni(self, note, value):
+        return any([view.filter(note, value) for view in self.omni_views])
+
     def process(self, message):
         if message.type in ["note_on", "note_off"]:
             note = message.note
@@ -57,5 +64,12 @@ class Router(object):
 
         if self.mode_toggler.should_toggle(note) and value > 0:
             self.mode_toggler.toggle(note)
+        elif self.is_omni(note, value):
+            for view in self.omni_views:
+                view(note, value)
+
+            if len(self.omni_views):
+                # update current view, in case something changed
+                self.get_current_view().propagate()
         else:
             self.get_current_view()(note, value)

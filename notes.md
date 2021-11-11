@@ -22,6 +22,7 @@ The most probable mode is:
 ToDo
 ===
 - Add view mode selection to wizard
+- Add drumpad selection to wizard
 - ~~load_map~~
 - ~~output queue, used in leds and notes~~
 - ~~input queue, add handler, remove midiin? and call from here?~~
