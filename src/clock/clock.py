@@ -17,8 +17,11 @@ class Clock(object):
         self.bpm = bpm if bpm is not None else 120.0
         self.running = False
         self._tickcnt = 0
-        self._signature = int((4 / signature) * 24)
+        self._beatcount = 0
+        self._signature = signature
+        self._resolution = 24 // (signature // 4)
 
+        print("Parsed signature & res", self._signature, self._resolution)
         self._slaves = []
         self._clock_handlers = []
         self._drain_handlers = []
@@ -36,14 +39,15 @@ class Clock(object):
             message, _ = message
 
         if message[0] == TIMING_CLOCK:
-            for obj in self._slaves:
-                obj.tick(self._tickcnt)
+            if self._tickcnt % self._resolution == 0:
+                for obj in self._slaves:
+                    obj.tick(self._beatcount)
 
-            if self._tickcnt % self._signature == 0:
                 for clk_hand in self._clock_handlers:
                     clk_hand.tick()
 
-            self._tickcnt = (self._tickcnt + 1) % self._signature
+            self._beatcount = (self._beatcount + 1) % 32
+            self._tickcnt = (self._tickcnt + 1) % self._resolution
 
         elif message[0] in (SONG_CONTINUE, SONG_START):
             self.running = True
@@ -54,6 +58,7 @@ class Clock(object):
         elif message[0] == SONG_STOP:
             self.running = False
             self._tickcnt = 0
+            self._beatcount = 0
             log.info("STOP received.")
             for clk_hand in [*self._clock_handlers, *self._slaves]:
                 clk_hand.stop()
