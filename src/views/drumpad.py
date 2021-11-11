@@ -14,6 +14,7 @@ class Drumpad(View):
         self.output_channel = config["output_channel"]
         self.display_queue = display_queue
         self.output_queue = output_queue
+        self.sync = False
         self._tickcnt = 0
         self._current_signature = None
         self._pad_states = [0] * len(self.drumpad)
@@ -35,14 +36,17 @@ class Drumpad(View):
             if value > 0:
                 self.output_queue.put(self.drumpad_msg(pad_id))
         elif note in self.multipliers:
+            sig = self._signatures[self.multipliers.index(note)]
             if value > 0:
-                sig = self._signatures[self.multipliers.index(note)]
                 self._current_signature = sig
-            else:
+            elif self._current_signature == sig:
                 self._current_signature = None
 
             message = self.display_msg(note, 127 if value > 0 else 0)
             self.display_queue(message)
+
+    def filter(self, note, value):
+        return note in self.drumpad or note in self.multipliers
 
     def send_pad_out(self):
         messages = [
@@ -78,12 +82,17 @@ class Drumpad(View):
         ]
         self.display_queue(messages)
 
-    def tick(self, *args):
+    # ToDo := Review sync mechanism
+    def tick(self, tick):
         if self._multiplier_on() and self._pad_on():
+            tickcnt = self._tickcnt
+            if self.sync:
+                tickcnt += tick
+
             if self._tickcnt % self._current_signature == 0:
                 self.send_pad_out()
 
-            self._tickcnt = (self._tickcnt + 1) % self._current_signature
+            self._tickcnt = (tickcnt + 1) % self._current_signature
 
     def start(self):
         self._tickcnt = 0

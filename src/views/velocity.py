@@ -17,11 +17,12 @@ def argmin(arr):
 
 class Velocity(View):
     def __init__(self, config, track_controller, track_getter, display_queue):
+        self.note_input_map = config["note_input_map"]
         self.nof_steps = config["nof_steps"]
         self.controller = track_controller
         self.get_track = track_getter
         self.display_queue = display_queue
-        self.vels_to_steps = list(range(0, 127, 127 // (self.nof_steps - 1)))
+        self.vels_to_steps = list(range(1, 127, 127 // (self.nof_steps - 1)))
         self.vels_to_steps[-1] = 127
 
     def __call__(self, note, value):
@@ -31,6 +32,9 @@ class Velocity(View):
         self.get_track(track_id).set_velocity(velocity)
         self.flush_track(track_id)
         self.display_track_velocity(track_id)
+
+    def filter(self, note, value):
+        return note in self.note_input_map
 
     def vel_to_step_id(self, velocity):
         nearest_vels = [abs(vel - velocity) for vel in self.vels_to_steps]

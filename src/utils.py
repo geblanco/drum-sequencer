@@ -132,13 +132,13 @@ def load_config(config_path):
 
     if config.get("note_output_map", None) is None:
         config["note_output_map"] = [
-            35 + i for i in range(config["nof_tracks"])
+            36 + i for i in range(config["nof_tracks"])
         ]
 
     if config.get("drumpad_output_map", None) is None:
         nof_drumpads = min(len(config["note_input_map"]), 16)
         config["drumpad_output_map"] = [
-            35 + i for i in range(nof_drumpads)
+            36 + i for i in range(nof_drumpads)
         ]
 
     config["all_track_controls"] = config.get("track_select_map").copy()

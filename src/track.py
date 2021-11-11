@@ -116,8 +116,10 @@ class Track(object):
         else:
             values = [values] * self.nof_steps
 
-        for i, val in enumerate(values):
-            self.track_velocity[i] = val
+        for i, vel in enumerate(values):
+            self.track_velocity[i] = vel
+            if self.state[i] > 0:
+                self.state[i] = vel
 
     def get_state(self):
         return self.state

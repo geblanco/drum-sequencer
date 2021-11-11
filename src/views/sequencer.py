@@ -89,6 +89,12 @@ class Sequencer(View):
         else:
             self.process_track_event(note, value)
 
+    def filter(self, note, value):
+        return (
+            note in self.note_input_map or
+            self.track_controller.is_track_control(note)
+        )
+
     # Process step events
     def process_step_event(self, note, value):
         if note in self.note_input_map:

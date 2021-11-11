@@ -72,4 +72,8 @@ class Router(object):
                 # update current view, in case something changed
                 self.get_current_view().propagate()
         else:
-            self.get_current_view()(note, value)
+            view = self.get_current_view()
+            if view.filter(note, value):
+                view(note, value)
+            # else:
+            #     print("Lost event", note, value)

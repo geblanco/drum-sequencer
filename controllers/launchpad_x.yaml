@@ -1,5 +1,5 @@
-controller_input_port: Launchpad X:Launchpad X LPX MIDI In 20:1
-controller_output_port: Launchpad X:Launchpad X LPX MIDI In 20:1
+controller_input_port: Launchpad X:Launchpad X LPX MIDI In 24:1
+controller_output_port: Launchpad X:Launchpad X LPX MIDI In 24:1
 drumpad_input_map:
 - 81
 - 82

@@ -8,3 +8,8 @@ class View(object):
         raise NotImplementedError(
             "You must implement `propagate` method on every View!"
         )
+
+    def filter(self, note, value):
+        raise NotImplementedError(
+            "You must implement `filter` method on every View!"
+        )
