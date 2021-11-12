@@ -21,7 +21,6 @@ class Clock(object):
         self._signature = signature
         self._resolution = 24 // (signature // 4)
 
-        print("Parsed signature & res", self._signature, self._resolution)
         self._slaves = []
         self._clock_handlers = []
         self._drain_handlers = []
@@ -98,6 +97,11 @@ class Clock(object):
                 self._create_internal_clock()
 
             self._internal_clock.start()
+
+    def pause(self):
+        self.running = False
+        if self.clock_source == ClockSource.internal:
+            self._internal_clock.pause()
 
     def stop(self):
         self.running = False

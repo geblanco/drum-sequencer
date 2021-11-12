@@ -69,6 +69,5 @@ class Velocity(View):
         return self.display_queue(messages)
 
     def propagate(self):
-        track_ids = self.controller.get_displayed_track_ids()
         for track_id in self.controller.get_displayed_track_ids():
             self.display_track_velocity(track_id)

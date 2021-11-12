@@ -6,7 +6,7 @@ from rtmidi.midiutil import open_midiinput
 from clock import Clock, LedClock
 from router import Router
 from wizard import query_yn
-from modes import ClockSource, ViewMode, NoteMode
+from modes import ClockSource, ViewMode
 from midi_queue import InputQueue, OutputQueue, DisplayQueue
 from views import (
     Drumpad,
@@ -215,8 +215,9 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
         try:
             time.sleep(1)
         except KeyboardInterrupt:
-            clock.stop()
+            clock.pause()
             if query_yn("Exit?"):
+                clock.stop()
                 break
             else:
                 clock.start()

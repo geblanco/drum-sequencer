@@ -26,6 +26,7 @@ log = logging.getLogger("CLOCK")
 class InternalClock(threading.Thread):
     def __init__(self, bpm=120.0, ppqn=24):
         super(InternalClock, self).__init__()
+        self._paused = threading.Event()
         self._stopped = threading.Event()
         self._finished = threading.Event()
 
@@ -60,18 +61,30 @@ class InternalClock(threading.Thread):
 
         self.join()
 
+    def pause(self):
+        self._paused.set()
+
+    def start(self):
+        if not self._paused.is_set():
+            self.run()
+        else:
+            self._paused.clear()
+
     def run(self):
         self._callback([SONG_START])
         while not self._stopped.is_set():
-            curtime = time.time()
+            while not self._paused.is_set():
+                curtime = time.time()
 
-            self._callback([TIMING_CLOCK])
+                self._callback([TIMING_CLOCK])
 
-            # loop speed adjustment
-            elapsed = time.time() - curtime
+                # loop speed adjustment
+                elapsed = time.time() - curtime
 
-            if elapsed < self._tick:
-                time.sleep(self._tick - elapsed)
+                if elapsed < self._tick:
+                    time.sleep(self._tick - elapsed)
+
+            time.sleep(1)
 
         # log.debug("Midi output mainloop exited.")
         self._finished.set()

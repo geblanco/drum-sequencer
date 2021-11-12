@@ -1,9 +1,4 @@
-import mido
-
 from .base import View
-from track import Track
-from modes import TrackMode
-from track_control import TrackController
 
 
 class TrackSelect(View):
