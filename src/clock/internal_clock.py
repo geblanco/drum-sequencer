@@ -64,11 +64,8 @@ class InternalClock(threading.Thread):
     def pause(self):
         self._paused.set()
 
-    def start(self):
-        if not self._paused.is_set():
-            self.run()
-        else:
-            self._paused.clear()
+    def unpause(self):
+        self._paused.clear()
 
     def run(self):
         self._callback([SONG_START])

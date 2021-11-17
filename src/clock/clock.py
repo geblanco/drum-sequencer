@@ -96,7 +96,10 @@ class Clock(object):
             if self._internal_clock is None:
                 self._create_internal_clock()
 
-            self._internal_clock.start()
+            if self._internal_clock.is_alive():
+                self._internal_clock.unpause()
+            else:
+                self._internal_clock.start()
 
     def pause(self):
         self.running = False
