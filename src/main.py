@@ -36,16 +36,16 @@ def parse_args():
     parser.add_argument("--ctrl_inport", type=str, default=None)
     parser.add_argument("--ctrl_outport", type=str, default=None)
     parser.add_argument("--output_port", type=str, default=None)
-    parser.add_argument("--clock_port", type=str, default=None)
+    parser.add_argument("--clock_source", choices=list(val.value for val in ClockSource))
     return parser.parse_args()
 
 
-def create_clock(config, controller_input, clock_source, clock_port):
+def create_clock(config, controller_input, clock_source):
     port = None
     if clock_source == ClockSource.controller:
         port = controller_input
     elif clock_source == ClockSource.external:
-        port, _ = open_midiinput(clock_port, interactive=True)
+        port, _ = open_midiinput(interactive=True)
 
     print(
         f"Using clock source: {clock_source}, "
@@ -59,17 +59,6 @@ def create_clock(config, controller_input, clock_source, clock_port):
     )
 
     return clock
-
-
-def setup_clock_source(controller_inport, clock_port):
-    if controller_inport is not None and controller_inport == clock_port:
-        clock_source = ClockSource.controller
-    elif clock_port is not None:
-        clock_source = ClockSource.external
-    else:
-        clock_source = ClockSource.internal
-
-    return clock_source
 
 
 def parse_ports(config, ctrl_inport, ctrl_outport, output_port):
@@ -89,13 +78,13 @@ def parse_ports(config, ctrl_inport, ctrl_outport, output_port):
 
 
 def init_clock_controller_and_sys_output(
-    cfg_path, cfg, ctrl_inport, ctrl_outport, clock_port, output_port
+    cfg_path, cfg, ctrl_inport, ctrl_outport, clock_source, output_port
 ):
-    clock_source = setup_clock_source(ctrl_inport, clock_port)
+    clock_source = ClockSource(clock_source)
     ctrl = open_controller(ctrl_inport, ctrl_outport)
     start_controller(ctrl, load_programmers(cfg_path))
     flush_controller(ctrl)
-    clock = create_clock(cfg, ctrl["input_port"], clock_source, clock_port)
+    clock = create_clock(cfg, ctrl["input_port"], clock_source)
     sys_output, _ = open_port(output_port, "output", "sequencer")
 
     return ctrl, clock, sys_output
@@ -185,14 +174,14 @@ def setup_components(
     return router, (sequencer,)
 
 
-def main(config, ctrl_inport, ctrl_outport, output_port, clock_port):
+def main(config, ctrl_inport, ctrl_outport, output_port, clock_source):
     cfg = load_config(config)
     ctrl_inport, ctrl_outport, output_port = parse_ports(
         cfg, ctrl_inport, ctrl_outport, output_port
     )
 
     ctrl, clock, sys_output = init_clock_controller_and_sys_output(
-        config, cfg, ctrl_inport, ctrl_outport, clock_port, output_port,
+        config, cfg, ctrl_inport, ctrl_outport, clock_source, output_port,
     )
 
     input_queue, output_queue, led_queue, display_queue = create_queues(
