@@ -11,9 +11,10 @@ from midi_queue import InputQueue, OutputQueue, DisplayQueue
 from views import (
     Drumpad,
     Velocity,
+    ClockSet,
     Sequencer,
     TrackSelect,
-    get_drumpad_view_hook
+    get_view_hook
 )
 from utils import (
     load_config,
@@ -31,12 +32,13 @@ from controller import (
 
 
 def parse_args():
+    clock_choices = list(val.value for val in ClockSource)
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     parser.add_argument("--ctrl_inport", type=str, default=None)
     parser.add_argument("--ctrl_outport", type=str, default=None)
     parser.add_argument("--output_port", type=str, default=None)
-    parser.add_argument("--clock_source", choices=list(val.value for val in ClockSource))
+    parser.add_argument("--clock_source", choices=clock_choices)
     return parser.parse_args()
 
 
@@ -142,23 +144,42 @@ def setup_components(
     router.add_view(ViewMode.omni, track_select)
 
     if cfg.get("views", None) is not None:
-        views = cfg["views"]
-        if "drumpad" in views:
-            drumpad = Drumpad(cfg, display_queue, output_queue)
-            router.add_view(ViewMode.drumpad, drumpad)
-            clock.add_slave(drumpad)
+        for view_cfg in cfg["views"]:
+            view = None
+            if "drumpad" in view_cfg:
+                view = Drumpad(cfg, display_queue, output_queue)
 
-        if "velocity" in views:
-            velocity = Velocity(
-                config=cfg,
-                track_controller=sequencer.track_controller,
-                track_getter=sequencer.get_track,
-                display_queue=display_queue,
-            )
-            router.add_view(ViewMode.velocity, velocity)
+            if "velocity" in view_cfg:
+                view = Velocity(
+                    config=cfg,
+                    track_controller=sequencer.track_controller,
+                    track_getter=sequencer.get_track,
+                    display_queue=display_queue,
+                )
+
+            if "clock_set" in view_cfg:
+                if clock.clock_source != ClockSource.internal:
+                    print(
+                        "Skipping `ClockSet` view because clock source "
+                        "is not internal"
+                    )
+                    continue
+                else:
+                    view = ClockSet(
+                        config=cfg,
+                        bpm=clock.bpm,
+                        clock_setter=clock._internal_clock.set_bpm,
+                        display_queue=display_queue,
+                    )
+
+            if view is not None:
+                print("Adding view", view.__class__.__name__, view.clock_slave)
+                router.add_view(view.view_mode, view)
+                if view.clock_slave:
+                    clock.add_slave(view)
 
     router.add_view(ViewMode.sequencer, sequencer)
-    on_active, on_inactive = get_drumpad_view_hook(input_queue, led_clock)
+    on_active, on_inactive = get_view_hook(input_queue, led_clock)
     router.add_view_event_hooks(on_active, on_inactive)
     input_queue.add_handler(router.process)
     clock.add_clock_handler(sequencer)

@@ -80,6 +80,7 @@ class ViewMode(IndexEnum):
     sequencer = "sequencer"
     drumpad = "drumpad"
     velocity = "velocity"
+    clock_set = "clock_set"
     omni = "omni"
 
 

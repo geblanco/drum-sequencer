@@ -2,11 +2,13 @@ import mido
 
 from .base import View
 from track import Track
-from modes import TrackMode
+from modes import TrackMode, ViewMode
 from track_control import TrackController
 
 
 class Sequencer(View):
+    view_mode = ViewMode.sequencer
+
     def __init__(
         self,
         config,

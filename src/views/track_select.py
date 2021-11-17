@@ -1,7 +1,10 @@
 from .base import View
+from modes import ViewMode
 
 
 class TrackSelect(View):
+    view_mode = ViewMode.omni
+
     def __init__(
         self,
         track_controller,

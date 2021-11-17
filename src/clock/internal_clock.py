@@ -48,6 +48,9 @@ class InternalClock(threading.Thread):
         # log.debug("Changed BPM => %s, tick interval %.2f ms.",
         #           self._bpm, self._tick * 1000)
 
+    def set_bpm(self, value):
+        self.bpm = value
+
     def set_callback(self, callback):
         self._callback = callback
 

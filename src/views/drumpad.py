@@ -1,10 +1,12 @@
 import mido
 
-from .base import View
-from modes import DisplayMsgTypes
+from .base import ClockedView
+from modes import DisplayMsgTypes, ViewMode
 
 
-class Drumpad(View):
+class Drumpad(ClockedView):
+    view_mode = ViewMode.drumpad
+
     def __init__(self, config, display_queue, output_queue):
         drumpad = config.get("drumpad_input_map", config["note_input_map"])
         self.drumpad = drumpad[:min(len(drumpad), 16)]

@@ -1,5 +1,5 @@
 from .base import View
-from modes import DisplayMsgTypes, LedColors
+from modes import DisplayMsgTypes, LedColors, ViewMode
 
 
 def mean(arr):
@@ -16,6 +16,8 @@ def argmin(arr):
 
 
 class Velocity(View):
+    view_mode = ViewMode.velocity
+
     def __init__(self, config, track_controller, track_getter, display_queue):
         self.note_input_map = config["note_input_map"]
         self.nof_steps = config["nof_steps"]

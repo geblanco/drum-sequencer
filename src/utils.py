@@ -37,13 +37,18 @@ class SliceSelector(object):
         sel_map,
         nof_displayed_opts,
         max_opts,
+        min_index=0,
+        start_index=0,
+        increment=1,
         update_hook=None,
     ):
-        self.index = 0
+        self.index = start_index
         self.sel_mode = sel_mode
         self.sel_map = sel_map
         self.nof_displayed_opts = nof_displayed_opts
         self.max_opts = max_opts
+        self.min_index = min_index
+        self.increment = increment
         self.update_hook = noop
         if isinstance(update_hook, Callable):
             self.update_hook = update_hook
@@ -66,11 +71,14 @@ class SliceSelector(object):
                 selections.append(target)
             else:
                 # up/down arrows
-                dir = -1 if self._is_select_up(value) else 1
+                dir = (
+                    -self.increment if self._is_select_up(value)
+                    else self.increment
+                )
                 prev_display = self.index
                 self.index += dir
                 self.index = min(
-                    max(self.index, 0),
+                    max(self.index, self.min_index),
                     self.max_opts - self.nof_displayed_opts
                 )
                 if prev_display != self.index:
