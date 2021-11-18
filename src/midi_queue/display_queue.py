@@ -54,6 +54,9 @@ class DisplayQueue(MidiQueue):
     def _is_velocity_view(self):
         return self.view == ViewMode.velocity
 
+    def _is_clock_set_view(self):
+        return self.view == ViewMode.clock_set
+
     def set_view(self, mode):
         self.view = mode
 
@@ -72,7 +75,7 @@ class DisplayQueue(MidiQueue):
                     if self._is_seq_view() or self._is_velocity_view():
                         # if track message falls in displayed tracks
                         valid = True
-                elif self._is_drumpad_view():
+                elif self._is_drumpad_view() or self._is_clock_set_view():
                     # or we are in another view
                     valid = True
 
