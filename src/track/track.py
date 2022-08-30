@@ -57,7 +57,6 @@ class Track(object):
     def __call__(self, step, value):
         if self.note_mode == NoteMode.toggle:
             self.state[step] = self.track_velocity[step] - self.state[step]
-            # self.state[step] = 127 - self.state[step]
         else:
             self.state[step] = value
 

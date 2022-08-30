@@ -1,9 +1,9 @@
 import mido
 
 from .base import View
-from track import Track
 from modes import TrackMode, ViewMode
-from track_control import TrackController
+from track import Track
+from track import TrackController
 
 
 class Sequencer(View):

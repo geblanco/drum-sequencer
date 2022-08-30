@@ -46,7 +46,7 @@ class ClockSet(ClockedView):
             # in the future we could scroll the number
             len(self.note_map) >= 64 and self._is_square(self.note_map)
         )
-        self._pad_velocity = 127 if self._color_pads else 64
+        self._pad_velocity = 127 if self._color_pads else 37
         self._n_rows = self._get_nrows(self.note_map)
 
         if len(self.setters) < 2:

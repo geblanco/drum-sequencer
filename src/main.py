@@ -122,26 +122,13 @@ def get_flush_callback(ctrl):
     return flush
 
 
-def setup_components(
-    cfg, ctrl, clock, input_queue, display_queue, output_queue
-):
-    led_clock = None
-    router = Router(cfg, display_queue, get_flush_callback(ctrl))
-    sequencer = Sequencer(cfg, display_queue, output_queue)
-
-    if cfg["led_config"]["led_clock"]:
-        led_clock = LedClock(
-            config=cfg,
-            track_state_getter=sequencer.get_track_state,
-            display_queue=display_queue
-        )
-        clock.add_clock_handler(led_clock)
-
+def setup_views(cfg, router, sequencer, clock, display_queue, output_queue):
     track_select = TrackSelect(
         track_controller=sequencer.track_controller,
         tracks_selector=sequencer.select_tracks
     )
     router.add_view(ViewMode.omni, track_select)
+    router.add_view(ViewMode.sequencer, sequencer)
 
     if cfg.get("views", None) is not None:
         for view_cfg in cfg["views"]:
@@ -173,14 +160,32 @@ def setup_components(
                     )
 
             if view is not None:
-                print("Adding view", view.__class__.__name__, view.clock_slave)
                 router.add_view(view.view_mode, view)
                 if view.clock_slave:
                     clock.add_slave(view)
 
-    router.add_view(ViewMode.sequencer, sequencer)
+
+
+def setup_components(
+    cfg, ctrl, clock, input_queue, display_queue, output_queue
+):
+    led_clock = None
+    router = Router(cfg, display_queue, get_flush_callback(ctrl))
+    sequencer = Sequencer(cfg, display_queue, output_queue)
+
+    if cfg["led_config"]["led_clock"]:
+        led_clock = LedClock(
+            config=cfg,
+            track_state_getter=sequencer.get_track_state,
+            display_queue=display_queue
+        )
+        clock.add_clock_handler(led_clock)
+
+    setup_views(cfg, router, sequencer, clock, display_queue, output_queue)
+
     on_active, on_inactive = get_view_hook(input_queue, led_clock)
     router.add_view_event_hooks(on_active, on_inactive)
+
     input_queue.add_handler(router.process)
     clock.add_clock_handler(sequencer)
 

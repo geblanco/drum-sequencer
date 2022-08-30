@@ -23,6 +23,7 @@ ToDo
 ===
 - Add view mode selection to wizard
 - Add drumpad selection to wizard
+- Add new views to wizard
 - ~~load_map~~
 - ~~output queue, used in leds and notes~~
 - ~~input queue, add handler, remove midiin? and call from here?~~
