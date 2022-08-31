@@ -1,3 +1,6 @@
+clock_offset_map:
+- 89
+- 79
 clock_set_map:
 - 95
 - 96

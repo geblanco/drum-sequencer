@@ -156,6 +156,7 @@ def setup_views(cfg, router, sequencer, clock, display_queue, output_queue):
                         config=cfg,
                         bpm=clock.bpm,
                         clock_setter=clock._internal_clock.set_bpm,
+                        offset_setter=clock._internal_clock.one_shot_offset,
                         display_queue=display_queue,
                     )
 

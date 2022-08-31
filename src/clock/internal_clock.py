@@ -33,6 +33,7 @@ class InternalClock(threading.Thread):
         self._callback = lambda x: ()
 
         # run-time options
+        self._one_shot_offset = 0.0
         self._tick = None
         self.ppqn = ppqn
         self.bpm = bpm
@@ -47,6 +48,15 @@ class InternalClock(threading.Thread):
         self._tick = 60. / (value * self.ppqn)
         # log.debug("Changed BPM => %s, tick interval %.2f ms.",
         #           self._bpm, self._tick * 1000)
+
+    def one_shot_offset(self, direction=None, reset=False):
+        if direction is None:
+            direction = 1
+        if reset:
+            self._one_shot_offset = 0.0
+        else:
+            print("one_shot_offset")
+            self._one_shot_offset = direction * (self._tick / 4.0)
 
     def set_bpm(self, value):
         self.bpm = value
@@ -79,7 +89,9 @@ class InternalClock(threading.Thread):
                 self._callback([TIMING_CLOCK])
 
                 # loop speed adjustment
-                elapsed = time.time() - curtime
+                elapsed = time.time() - curtime + self._one_shot_offset
+                self.one_shot_offset(reset=True)
+
 
                 if elapsed < self._tick:
                     time.sleep(self._tick - elapsed)

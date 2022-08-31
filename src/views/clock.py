@@ -27,11 +27,13 @@ def number_to_segments(number):
 class ClockSet(ClockedView):
     view_mode = ViewMode.clock_set
 
-    def __init__(self, config, bpm, clock_setter, display_queue):
+    def __init__(self, config, bpm, clock_setter, offset_setter, display_queue):
         self.note_map = config["note_input_map"]
         self.prev_bpm = None
         self.bpm = bpm
         self.set_clock = clock_setter
+        self.offset_clock = offset_setter
+        self.offset_map = config.get("clock_offset_map", [])
         self.display_queue = display_queue
         self.setters = config.get("clock_set_map", [])
         self.mult_list = [1, -1, 5, -5, 2, 0.5]
@@ -82,10 +84,13 @@ class ClockSet(ClockedView):
             self.selectors.append(selector)
 
     def _get_selector(self, note):
-        return [sel for sel in self.selectors if sel.should_toggle(note)][0]
+        ret = None
+        selector = [sel for sel in self.selectors if sel.should_toggle(note)]
+        if len(selector):
+            ret = selector[0]
+        return ret
 
-    def __call__(self, note, value):
-        selector = self._get_selector(note)
+    def _update_bpm(self, selector, note, value):
         if value > 0:
             self._current_selector = (selector, note)
             selector.toggle(note)
@@ -98,6 +103,15 @@ class ClockSet(ClockedView):
         else:
             self._current_selector = None
             self._skipped_frames = 0
+
+    def __call__(self, note, value):
+        selector = self._get_selector(note)
+        if selector is not None:
+            self._update_bpm(selector, note, value)
+        elif note in self.offset_map:
+            direction = -1 if self.offset_map.index(note) == 0 else 1
+            print("Calling offset")
+            self.offset_clock(direction=direction)
 
     def _segment_to_notes(self, segment, offset=0, skip_spaces=True):
         notes = []
@@ -158,7 +172,10 @@ class ClockSet(ClockedView):
         return [DisplayMsgTypes.one_shot, note, value]
 
     def filter(self, note, value):
-        return any([setter.should_toggle(note) for setter in self.selectors])
+        return (
+            any([setter.should_toggle(note) for setter in self.selectors]) or
+            note in self.offset_map
+        )
 
     def update_tempo_hook(self, value):
         self.prev_bpm = self.bpm
