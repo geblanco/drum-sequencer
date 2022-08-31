@@ -49,14 +49,15 @@ def finish_controller(controller, programmers):
 
 
 def open_port(name, io, device, virtual=None):
-    status = f"Opening {device} {io}"
+    status = f"\nOpening {device} {io.upper()}"
 
     if name is None or name.strip() == "":
         name = None
-        status = f"\n{status}...\n{'=' * 15}"
+        status = f"\n{status}..."
     else:
         status += f" {name}..."
 
+    status += "\n" + ("=" * 45)
     print(status)
     if io == "input":
         fn = open_midiinput
