@@ -89,6 +89,12 @@ class ClockSet(ClockedView):
         if value > 0:
             self._current_selector = (selector, note)
             selector.toggle(note)
+            # could be better with an atomic, shared index
+            # accross all selectors
+            # update rest of selectors index
+            for sel in self.selectors:
+                if sel != selector:
+                    sel.index = selector.index
         else:
             self._current_selector = None
             self._skipped_frames = 0

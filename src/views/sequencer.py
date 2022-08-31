@@ -112,8 +112,8 @@ class Sequencer(View):
             # ToDo := solo/mute for each track
             target = self.track_controller.get_control_target_track(note)
             self.apply_track_controls(target)
-            for track_id in target.values():
-                print(self.tracks[track_id])
+            # for track_id in target.values():
+            #     print(self.tracks[track_id])
 
     def propagate(self):
         for track in self.selected_tracks():
