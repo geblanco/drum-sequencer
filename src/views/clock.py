@@ -1,21 +1,22 @@
 from math import sqrt
-from .base import ClockedView
-from utils import SliceSelector
-from modes import SelectMode, ViewMode, LedColors, DisplayMsgTypes
 
+from modes import ViewMode, LedColors, SelectMode, DisplayMsgTypes
+from utils import SliceSelector
+
+from .base import ClockedView
 
 representations = {
-    '0': ('###', '# #', '###'),
-    '1': ('   ', ' # ', '   '),
-    '2': (' # ', ' # ', '   '),
-    '3': (' # ', ' # ', ' # '),
-    '4': ('   ', '# #', '# #'),
+    "0": ("###", "# #", "###"),
+    "1": ("   ", " # ", "   "),
+    "2": (" # ", " # ", "   "),
+    "3": (" # ", " # ", " # "),
+    "4": ("   ", "# #", "# #"),
     # '4': (' # ', '# #', ' # '),
-    '5': (' # ', '# #', '# #'),
-    '6': ('# #', '# #', '# #'),
-    '7': ('###', '# #', '# #'),
-    '8': ('###', '###', '# #'),
-    '9': ('###', '###', '###'),
+    "5": (" # ", "# #", "# #"),
+    "6": ("# #", "# #", "# #"),
+    "7": ("###", "# #", "# #"),
+    "8": ("###", "###", "# #"),
+    "9": ("###", "###", "###"),
 }
 
 
@@ -27,13 +28,11 @@ def number_to_segments(number):
 class ClockSet(ClockedView):
     view_mode = ViewMode.clock_set
 
-    def __init__(self, config, bpm, clock_setter, offset_setter, display_queue):
+    def __init__(self, config, bpm, clock_setter, display_queue):
         self.note_map = config["note_input_map"]
         self.prev_bpm = None
         self.bpm = bpm
         self.set_clock = clock_setter
-        self.offset_clock = offset_setter
-        self.offset_map = config.get("clock_offset_map", [])
         self.display_queue = display_queue
         self.setters = config.get("clock_set_map", [])
         self.mult_list = [1, -1, 5, -5, 2, 0.5]
@@ -41,20 +40,20 @@ class ClockSet(ClockedView):
         self.selectors = []
         self._current_selector = None
         self._skipped_frames = 0
-        self._color_pads = config["led_config"].get(
-            "led_color_mode", LedColors.default
-        ) == LedColors.velocity
+        self._color_pads = (
+            config["led_config"].get("led_color_mode", LedColors.default)
+            == LedColors.velocity
+        )
         self._paint_controller = (
             # in the future we could scroll the number
-            len(self.note_map) >= 64 and self._is_square(self.note_map)
+            len(self.note_map) >= 64
+            and self._is_square(self.note_map)
         )
         self._pad_velocity = 127 if self._color_pads else 37
         self._n_rows = self._get_nrows(self.note_map)
 
         if len(self.setters) < 2:
-            raise ValueError(
-                "For clock view you must set at least two modifiers!"
-            )
+            raise ValueError("For clock view you must set at least two modifiers!")
 
         self._setup_selectors()
 
@@ -68,8 +67,8 @@ class ClockSet(ClockedView):
     def _setup_selectors(self):
         total = min([len(self.setters), len(self.mult_list)])
         for idx in range(0, total, 2):
-            setters = self.setters[idx:idx + 2]
-            multipliers = self.mult_list[idx:idx+2]
+            setters = self.setters[idx : idx + 2]
+            multipliers = self.mult_list[idx : idx + 2]
 
             selector = SliceSelector(
                 sel_mode=SelectMode.arrows,
@@ -79,7 +78,7 @@ class ClockSet(ClockedView):
                 min_index=20,
                 start_index=self.bpm,
                 increment=multipliers[0],
-                update_hook=self.update_tempo_hook
+                update_hook=self.update_tempo_hook,
             )
             self.selectors.append(selector)
 
@@ -108,10 +107,6 @@ class ClockSet(ClockedView):
         selector = self._get_selector(note)
         if selector is not None:
             self._update_bpm(selector, note, value)
-        elif note in self.offset_map:
-            direction = -1 if self.offset_map.index(note) == 0 else 1
-            print("Calling offset")
-            self.offset_clock(direction=direction)
 
     def _segment_to_notes(self, segment, offset=0, skip_spaces=True):
         notes = []
@@ -159,9 +154,7 @@ class ClockSet(ClockedView):
                     self.flush_segment(segment, offset=offset)
 
             for offset, segment in self._segments_offset(self.bpm):
-                self._paint_segment(
-                    segment, offset=offset, velocity=self._pad_velocity
-                )
+                self._paint_segment(segment, offset=offset, velocity=self._pad_velocity)
 
     def flush_segment(self, segment, offset):
         to_paint = self._segment_to_notes(segment, offset, skip_spaces=False)
@@ -172,10 +165,7 @@ class ClockSet(ClockedView):
         return [DisplayMsgTypes.one_shot, note, value]
 
     def filter(self, note, value):
-        return (
-            any([setter.should_toggle(note) for setter in self.selectors]) or
-            note in self.offset_map
-        )
+        return any([setter.should_toggle(note) for setter in self.selectors])
 
     def update_tempo_hook(self, value):
         self.prev_bpm = self.bpm

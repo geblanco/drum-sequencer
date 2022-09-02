@@ -13,12 +13,7 @@ import time
 import logging
 import threading
 
-from rtmidi.midiconstants import (
-    TIMING_CLOCK,
-    SONG_START,
-    SONG_STOP
-)
-
+from rtmidi.midiconstants import SONG_STOP, SONG_START, TIMING_CLOCK
 
 log = logging.getLogger("CLOCK")
 
@@ -45,7 +40,7 @@ class InternalClock(threading.Thread):
     @bpm.setter
     def bpm(self, value):
         self._bpm = value
-        self._tick = 60. / (value * self.ppqn)
+        self._tick = 60.0 / (value * self.ppqn)
         # log.debug("Changed BPM => %s, tick interval %.2f ms.",
         #           self._bpm, self._tick * 1000)
 
@@ -55,7 +50,6 @@ class InternalClock(threading.Thread):
         if reset:
             self._one_shot_offset = 0.0
         else:
-            print("one_shot_offset")
             self._one_shot_offset = direction * (self._tick / 4.0)
 
     def set_bpm(self, value):
@@ -91,7 +85,6 @@ class InternalClock(threading.Thread):
                 # loop speed adjustment
                 elapsed = time.time() - curtime + self._one_shot_offset
                 self.one_shot_offset(reset=True)
-
 
                 if elapsed < self._tick:
                     time.sleep(self._tick - elapsed)

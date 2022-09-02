@@ -1,11 +1,11 @@
 clock_offset_map:
-- 89
-- 79
-clock_set_map:
 - 95
 - 96
-- 97
-- 98
+clock_set_map:
+- 89
+- 79
+- 69
+- 59
 controller_input_port: Launchpad X:Launchpad X LPX MIDI In 20:1
 controller_output_port: Launchpad X:Launchpad X LPX MIDI In 20:1
 drumpad_input_map:

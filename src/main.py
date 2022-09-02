@@ -4,31 +4,21 @@ import argparse
 from rtmidi.midiutil import open_midiinput
 
 from clock import Clock, LedClock
+from modes import ViewMode, ClockSource
+from utils import load_config, load_programmers, save_controller_ports
+from views import Drumpad, ClockSet, Velocity, Sequencer, TrackSelect, get_view_hook
 from router import Router
 from wizard import query_yn
-from modes import ClockSource, ViewMode
-from midi_queue import InputQueue, OutputQueue, DisplayQueue
-from views import (
-    Drumpad,
-    Velocity,
-    ClockSet,
-    Sequencer,
-    TrackSelect,
-    get_view_hook
-)
-from utils import (
-    load_config,
-    load_programmers,
-    save_controller_ports,
-)
 from controller import (
-    start_controller,
-    finish_controller,
-    flush_controller,
+    open_port,
     open_controller,
     close_controller,
-    open_port,
+    flush_controller,
+    start_controller,
+    finish_controller,
 )
+from midi_queue import InputQueue, OutputQueue, DisplayQueue
+from src.views.clock_offset import ClockOffset
 
 
 def parse_args():
@@ -49,15 +39,12 @@ def create_clock(config, controller_input, clock_source):
     elif clock_source == ClockSource.external:
         port, _ = open_midiinput(interactive=True)
 
-    print(
-        f"Using clock source: {clock_source}, "
-        f"signature: 1/{config['nof_steps']}"
-    )
+    print(f"Using clock source: {clock_source}, " f"signature: 1/{config['nof_steps']}")
     clock = Clock(
         clock_source=clock_source,
         midiin=port,
         bpm=config.get("bpm", 120),
-        signature=config["nof_steps"]
+        signature=config["nof_steps"],
     )
 
     return clock
@@ -98,15 +85,10 @@ def create_queues(config, controller_output, sys_output):
         channel=config["input_channel"],
     )
     # Probably channel not needed here, messages should already be set
-    output_queue = OutputQueue(
-        midiout=sys_output,
-        channel=config["output_channel"]
-    )
+    output_queue = OutputQueue(midiout=sys_output, channel=config["output_channel"])
     led_queue = OutputQueue(
         midiout=controller_output,
-        channel=config["led_config"].get(
-            "led_channel", config["input_channel"]
-        )
+        channel=config["led_config"].get("led_channel", config["input_channel"]),
     )
     display_queue = DisplayQueue(
         config=config,
@@ -125,10 +107,17 @@ def get_flush_callback(ctrl):
 def setup_views(cfg, router, sequencer, clock, display_queue, output_queue):
     track_select = TrackSelect(
         track_controller=sequencer.track_controller,
-        tracks_selector=sequencer.select_tracks
+        tracks_selector=sequencer.select_tracks,
     )
     router.add_view(ViewMode.omni, track_select)
     router.add_view(ViewMode.sequencer, sequencer)
+
+    offset_map = cfg.get("clock_offset_map", None)
+    if offset_map is not None and clock.clock_source == ClockSource.internal:
+        clock_offset_view = ClockOffset(
+            config=cfg, clock_controller=clock._internal_clock
+        )
+        router.add_view(ViewMode.omni, clock_offset_view)
 
     if cfg.get("views", None) is not None:
         for view_cfg in cfg["views"]:
@@ -156,7 +145,6 @@ def setup_views(cfg, router, sequencer, clock, display_queue, output_queue):
                         config=cfg,
                         bpm=clock.bpm,
                         clock_setter=clock._internal_clock.set_bpm,
-                        offset_setter=clock._internal_clock.one_shot_offset,
                         display_queue=display_queue,
                     )
 
@@ -166,10 +154,7 @@ def setup_views(cfg, router, sequencer, clock, display_queue, output_queue):
                     clock.add_slave(view)
 
 
-
-def setup_components(
-    cfg, ctrl, clock, input_queue, display_queue, output_queue
-):
+def setup_components(cfg, ctrl, clock, input_queue, display_queue, output_queue):
     led_clock = None
     router = Router(cfg, display_queue, get_flush_callback(ctrl))
     sequencer = Sequencer(cfg, display_queue, output_queue)
@@ -178,7 +163,7 @@ def setup_components(
         led_clock = LedClock(
             config=cfg,
             track_state_getter=sequencer.get_track_state,
-            display_queue=display_queue
+            display_queue=display_queue,
         )
         clock.add_clock_handler(led_clock)
 
@@ -208,7 +193,12 @@ def main(config, ctrl_inport, ctrl_outport, output_port, clock_source):
     )
 
     ctrl, clock, sys_output = init_clock_controller_and_sys_output(
-        config, cfg, ctrl_inport, ctrl_outport, clock_source, output_port,
+        config,
+        cfg,
+        ctrl_inport,
+        ctrl_outport,
+        clock_source,
+        output_port,
     )
 
     input_queue, output_queue, led_queue, display_queue = create_queues(
