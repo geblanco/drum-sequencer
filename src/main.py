@@ -6,7 +6,15 @@ from rtmidi.midiutil import open_midiinput
 from clock import Clock, LedClock
 from modes import ViewMode, ClockSource
 from utils import load_config, load_programmers, save_controller_ports
-from views import Drumpad, ClockSet, Velocity, Sequencer, TrackSelect, get_view_hook
+from views import (
+    Drumpad,
+    ClockSet,
+    ClockOffset,
+    Velocity,
+    Sequencer,
+    TrackSelect,
+    get_view_hook
+)
 from router import Router
 from wizard import query_yn
 from controller import (
@@ -18,7 +26,6 @@ from controller import (
     finish_controller,
 )
 from midi_queue import InputQueue, OutputQueue, DisplayQueue
-from src.views.clock_offset import ClockOffset
 
 
 def parse_args():
